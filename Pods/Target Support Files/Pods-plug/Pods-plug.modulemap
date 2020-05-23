@@ -1,0 +1,6 @@
+framework module Pods_plug {
+  umbrella header "Pods-plug-umbrella.h"
+
+  export *
+  module * { export * }
+}

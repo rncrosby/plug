@@ -10,6 +10,8 @@ import UIKit
 
 class PostViewController: UITableViewController, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
     
+    
+    weak var delegate:RootDelegate?
     var sizes = [String]()
 
     
@@ -20,7 +22,7 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
         super.init(style: .grouped)
         self.navigationController?.navigationBar.prefersLargeTitles = true
         self.title = "Post"
-        self.tabBarItem = UITabBarItem.init(title: "Post", image: UIImage.init(systemName: "dollarsign.circle"), tag: 0)
+        self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "tag"), selectedImage: UIImage.init(systemName: "tag.fill"))
     }
     
     required init?(coder: NSCoder) {
@@ -29,19 +31,31 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
     
     override func viewDidLoad() {
         
-        self.sections.updateSection(title: .ItemImages, rows: 3)
-        self.sections.updateSection(title: .ItemNaming, rows: 2)
-        self.sections.updateSection(title: .ItemClassification, rows: Item.Kind.allCases.count)
+        self.tableView.register(UINib(nibName: "GrowingCell", bundle: nil), forCellReuseIdentifier: "GrowingCell")
+        
+        self.sections.updateSection(title: .ItemNaming, rows: 1)
+        self.sections.updateSection(title: .ItemImages, rows: 1)
+        self.sections.updateSection(title: .ItemClassification, rows: 1)
         self.sections.updateSection(title: .ItemSizing, rows: 1)
         self.sections.updateSection(title: .ItemPricing, rows: 2)
         self.sections.updateSection(title: .Actions, rows: 1)
+        item.delegate = self
         super.viewDidLoad()
-
-        // Uncomment the following line to preserve selection between presentations
-        // self.clearsSelectionOnViewWillAppear = false
-
-        // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
-        // self.navigationItem.rightBarButtonItem = self.editButtonItem
+        self.tableView.backgroundColor = .secondarySystemGroupedBackground
+        
+        let refresh = UIRefreshControl.init()
+        refresh.largeContentTitle = "Clear Table"
+        refresh.attributedTitle = NSAttributedString.init(string: "Clear Table")
+        refresh.addTarget(self, action: #selector(clearInput(sender:)), for: .valueChanged)
+        self.tableView.refreshControl = refresh
+    }
+    
+    @objc func clearInput(sender: UIRefreshControl) {
+        item = .init()
+        self.tableView.beginUpdates()
+        self.tableView.reloadSections(IndexSet.init(0..<self.sections.count), with: .fade)
+        self.tableView.endUpdates()
+        sender.endRefreshing()
     }
 
     // MARK: - Table view data source
@@ -58,10 +72,13 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
     
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
-        if (identifier == .ItemNaming) || (identifier == .ItemSizing) || (identifier == .ItemPricing && indexPath.row == 0) {
+        if identifier == .ItemClassification {
+            return 80
+        }
+        if (identifier == .ItemSizing) || (identifier == .ItemPricing) || (identifier == .Actions) {
             return 60
         } else if identifier == .ItemImages && indexPath.row == 0 {
-            return 130
+            return self.item.getImageCollectionContentHeight()
         }
         return UITableView.automaticDimension
     }
@@ -71,30 +88,27 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
         
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
         let cell = UITableViewCell.init(style: .default, reuseIdentifier: identifier.rawValue)
+        cell.backgroundColor = .systemGroupedBackground
         switch identifier {
         case .ItemNaming:
-            let textfield = UITextField.init(frame: CGRect.init(x: 15, y: 5, width: self.view.frame.size.width-30, height: 50))
-            textfield.delegate = self
-            switch indexPath.row {
-            case 0:
-                textfield.placeholder = "Brand"
-                textfield.tag = 0
-            case 1:
-                textfield.placeholder = "Name"
-                textfield.tag = 1
-            default:
-                break
-            }
-            cell.addSubview(textfield)
-            cell.selectionStyle = .none
+            let cell = tableView.dequeueReusableCell(withIdentifier: "GrowingCell", for: indexPath) as! GrowingCell
+            cell.backgroundColor = .systemGroupedBackground
+            cell.textView.font = .systemFont(ofSize: 24, weight: .bold)
+            cell.textView.autocapitalizationType = .words
+            cell.textView.autocorrectionType = .no
+            cell.placeholder.font = cell.textView.font
+            cell.textView.text = self.item.name
+            cell.placeholder.isHidden = !(cell.textView.text.isEmpty)
+            cell.cellDelegate = self
+            return cell
         case .ItemClassification:
-            let indexKind = Item.Kind.allCases[indexPath.row]
-            cell.textLabel?.text = indexKind.rawValue.capitalizingFirstLetter()
-            if self.item.kind == indexKind {
-                cell.imageView?.image = UIImage.init(systemName: "square.fill")
-            } else {
-                cell.imageView?.image = UIImage.init(systemName: "square")
-            }
+            let segment = UISegmentedControl.init(items: ["👟","👕","🧥","👖","🕶"])
+            segment.backgroundColor = .clear
+            segment.setTitleTextAttributes([NSAttributedString.Key.font: UIFont.systemFont(ofSize: 23)], for: .normal)
+            segment.selectedSegmentIndex = Item.Kind.allCases.firstIndex(of: self.item.kind) ?? 0
+            segment.addTarget(self, action: #selector(changeKind(_:)), for: .valueChanged)
+            segment.frame = CGRect.init(x: 15, y: 15, width: self.view.frame.size.width-30, height: 50)
+            cell.addSubview(segment)
         case .ItemSizing:
             let textfield = UITextField.init(frame: CGRect.init(x: 0, y: 0, width: 200, height: 50))
             self.sizes.removeAll()
@@ -110,54 +124,62 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
                 sizes = ["Small","Medium","Large","X-Large","XX-Large"]
             }
             setInputSizePicker(textfield: textfield)
+            textfield.font = .systemFont(ofSize: 24, weight: .bold)
             textfield.text = self.item.size
             textfield.textAlignment = .right
             textfield.delegate = self
             textfield.tag = 2
             cell.accessoryView = textfield
-            cell.textLabel?.text = "Size"
+            cell.textLabel?.text = "SIZE"
+            cell.textLabel?.font = textfield.font
+            cell.textLabel?.textColor = .systemGray
+            cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
         case .ItemPricing:
             if indexPath.row == 0 {
                 let textfield = UITextField.init(frame: CGRect.init(x: 0, y: 0, width: 100, height: 50))
                 textfield.placeholder = "$90"
+                textfield.keyboardType = .numbersAndPunctuation
                 textfield.textAlignment = .right
+                textfield.font = .systemFont(ofSize: 24, weight: .bold)
                 textfield.delegate = self
                 textfield.tag = 3
                 cell.accessoryView = textfield
-                cell.textLabel?.text = "Asking Price"
-                cell.selectionStyle = .none
+                cell.textLabel?.text = "ASKING PRICE"
+                cell.textLabel?.textColor = .systemGray
+                cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
             } else if indexPath.row == 1 {
                 let toggle = UISwitch.init()
                 toggle.setOn(self.item.instant, animated: false)
                 toggle.addTarget(self, action: #selector(toggleInstant(sender:)), for: .valueChanged)
                 cell.accessoryView = toggle
-                cell.textLabel?.text = "Accept First Offer"
+                cell.textLabel?.text = "ACCEPT FIRST OFFER"
+                cell.textLabel?.textColor = .systemGray
+                cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
             }
         case .ItemImages:
-            switch indexPath.row {
-            case 0:
-                let collection = self.item.getImageCollection(frame: CGRect.init(origin: .zero, size: CGSize.init(width: self.view.frame.size.width, height: 130)))
-                cell.addSubview(collection)
-            case 1:
-                cell.textLabel?.text = "Take Picture"
-                cell.imageView?.image = UIImage.init(systemName: "camera")
-                cell.textLabel?.textColor = UIApplication.shared.windows.first!.tintColor
-            case 2:
-                cell.textLabel?.text = "Choose Picture"
-                cell.imageView?.image = UIImage.init(systemName: "photo")
-                cell.textLabel?.textColor = UIApplication.shared.windows.first!.tintColor
-                
-            default:
-                break
-            }
+            let collection = self.item.getPostImageCollection(frame: CGRect.init(origin: CGPoint.init(x: 15, y: 15), size: CGSize.init(width: self.view.frame.size.width-30, height: 130)))
+            cell.addSubview(collection)
         case .Actions:
-            cell.textLabel?.text = "Post Item"
-            cell.imageView?.image = UIImage.init(systemName: "paperplane")
+            cell.textLabel?.text = "POST ITEM"
+            cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
             cell.textLabel?.textColor = UIApplication.shared.windows.first!.tintColor
         default:
             break
         }
         return cell
+    }
+    
+    @objc func changeKind(_ sender: UISegmentedControl) {
+        let current = self.item.kind
+        self.item.kind = Item.Kind.allCases[sender.selectedSegmentIndex]
+        if (current == .Shoes && self.item.kind != .Shoes) || (current != .Shoes && self.item.kind == .Shoes) {
+            self.item.size = nil
+            if let index = self.sections.indexForIdentifier(.ItemSizing) {
+                self.tableView.beginUpdates()
+                self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
+                self.tableView.endUpdates()
+            }
+        }
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -180,12 +202,20 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
                     }
                 }
             }
-        case .ItemImages:
-            if indexPath.row > 0 {
-                openImagePicker(fromCamera: indexPath.row == 1)
+        case .ItemPricing:
+            if indexPath.row == 0 {
+                if let subviews = tableView.cellForRow(at: indexPath)?.subviews {
+                    for view in subviews {
+                        if let tf = view as? UITextField {
+                            tf.becomeFirstResponder()
+                        }
+                    }
+                }
             }
+        case .ItemImages:
+            break
         case .Actions:
-            print(self.item.firestore)
+            self.initiatePosting()
         default:
             break
         }
@@ -196,15 +226,7 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
     @objc func toggleInstant(sender: UISwitch) {
         self.item.instant.toggle()
     }
-    
-    func openImagePicker( fromCamera: Bool) {
-        let vc = UIImagePickerController()
-        vc.sourceType = fromCamera ? .camera : .photoLibrary
-        vc.allowsEditing = true
-        vc.delegate = self
-        present(vc, animated: true)
-    }
-    
+
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         picker.dismiss(animated: true)
 
@@ -215,12 +237,80 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
         
         self.item.attachImage(image)
         self.tableView.beginUpdates()
-        self.tableView.reloadSections(IndexSet.init(integer: 0), with: .fade)
+        if let index = self.sections.indexForIdentifier(.ItemImages) {
+            self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
+        }
         self.tableView.endUpdates()
     }
     
     var sizeField:UITextField?
+    
+    var loadingView:UIAlertController?
+    var imagesUploaded = Int(0)
+    
+    func initiatePosting() {
+        if let notReady = self.item.readyToPost() {
+            self.delegate?.showAlert(title: nil, message: notReady)
+        } else {
+            loadingView = UIAlertController.init(title: nil, message: "Uploading Pictures...", preferredStyle: .alert)
+            self.present(loadingView!, animated: true) {
+                self.item.uploadImages()
+            }
+        }
+        
+    }
+}
 
+extension PostViewController: ItemDelegate {
+    @objc func openImagePicker() {
+        let alert = UIAlertController.init(title: "Attach Picture", message: nil, preferredStyle: .actionSheet)
+        
+        alert.addAction(UIAlertAction.init(title: "Take Picture", style: .default, handler: { (action) in
+            let vc = UIImagePickerController()
+            vc.sourceType = .camera
+            vc.allowsEditing = true
+            vc.delegate = self
+            self.present(vc, animated: true)
+        }))
+        alert.addAction(UIAlertAction.init(title: "Select Picture", style: .default, handler: { (action) in
+            let vc = UIImagePickerController()
+            vc.sourceType = .photoLibrary
+            vc.allowsEditing = true
+            vc.delegate = self
+            self.present(vc, animated: true)
+        }))
+        alert.addAction(UIAlertAction.init(title: "Cancel", style: .cancel, handler: nil))
+        self.present(alert, animated: true, completion: nil)
+        
+    }
+    
+    @objc func imageDoneUploading() {
+        imagesUploaded+=1
+        if imagesUploaded == self.item.images?.count {
+            self.loadingView?.dismiss(animated: true, completion: {
+                self.loadingView! = UIAlertController.init(title: nil, message: "Making Post", preferredStyle: .alert)
+                self.present(self.loadingView!, animated: true) {
+                    self.item.makePost { (result, error) in
+                        if result == true {
+                            self.loadingView?.dismiss(animated: true, completion: {
+                                self.delegate?.showAlert(title: nil, message: "Sucess!")
+                            })
+                        } else {
+                            self.loadingView?.dismiss(animated: true, completion: {
+                                self.delegate?.showAlert(title: "Error", message: error!)
+                            })
+                        }
+                    }
+                }
+            })
+        }
+    }
+    
+    @objc func errorUploadingImage(index: Int, message: String) {
+        self.loadingView?.dismiss(animated: true, completion: {
+            self.delegate?.showAlert(title: "Image \(index) Error", message: message)
+        })
+    }
 }
 
 extension PostViewController: UITextFieldDelegate {
@@ -235,7 +325,6 @@ extension PostViewController: UITextFieldDelegate {
         if let text = textField.text {
             switch textField.tag {
             case 0:
-                self.item.brand = text
                 if self.item.name == nil {
                     if let index = self.sections.indexForIdentifier(.ItemNaming) {
                         let cell = self.tableView.cellForRow(at: IndexPath.init(row: 1, section: index))
@@ -280,17 +369,6 @@ extension PostViewController: UITextFieldDelegate {
     }
 }
 
-extension String  {
-    var isNumber: Bool {
-        return !isEmpty && rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) == nil
-    }
-}
-
-extension Float {
-    var clean: String {
-       return self.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", self) : String(self)
-    }
-}
 
 extension PostViewController: UIPickerViewDelegate, UIPickerViewDataSource {
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
@@ -348,3 +426,21 @@ extension PostViewController: UIPickerViewDelegate, UIPickerViewDataSource {
     
 }
 
+extension PostViewController: GrowingCellProtocol {
+    
+    func updateHeightOfRow(_ cell: GrowingCell, _ textView: UITextView) {
+        self.item.name = textView.text
+        let size = textView.bounds.size
+        let newSize = tableView.sizeThatFits(CGSize(width: size.width,
+                                                        height: CGFloat.greatestFiniteMagnitude))
+        if size.height != newSize.height {
+            UIView.setAnimationsEnabled(false)
+            tableView?.beginUpdates()
+            tableView?.endUpdates()
+            UIView.setAnimationsEnabled(true)
+            if let thisIndexPath = tableView.indexPath(for: cell) {
+                tableView.scrollToRow(at: thisIndexPath, at: .bottom, animated: false)
+            }
+        }
+    }
+}

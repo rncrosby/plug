@@ -1,3 +1,5 @@
+
+
 class SectionController {
     
     var count: Int {
@@ -13,13 +15,36 @@ class SectionController {
         var headerText:String = ""
         
         enum Identifier:String {
+            case ItemMetrics = "item metrics"
+            case ItemDetails = "item details"
             case ItemImages = "item images"
             case ItemNaming = "item naming"
             case ItemClassification = "item classification"
             case ItemSizing = "item sizing"
             case ItemPricing = "item pricing"
             case Actions = "actions"
+            case Authentication = "authentication"
+            case PublicProfile = "public profile"
+            
+            case OfferMessages = "offer messages"
+            case OfferComposer = "offer composer"
+            case OfferPending = "offer pending"
+            
+            case MyStuffOffers = "my stuff offers"
+            case MyStuffFavorites = "my stuff favorites"
         }
+    }
+    
+    func orderSections(_ newOrder: [Section.Identifier]) {
+        var temp = [Section]()
+        for identifier in newOrder {
+            if let index = self.sections.firstIndex(where: { (section) -> Bool in
+                return section.title == identifier
+            }) {
+                temp.append(self.sections[index])
+            }
+        }
+        self.sections = temp
     }
     
     func setHeaderTextForSection(_ title: Section.Identifier, _ text: String) {
@@ -104,7 +129,11 @@ class SectionController {
     }
     
     func rowsInSectionAtIndex(_ index: Int) -> Int {
-        return self.sections[index].rows
+        if index < self.sections.count {
+            return self.sections[index].rows
+        }
+        return 0
+        
     }
     
     

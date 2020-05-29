@@ -8,32 +8,88 @@
 
 import UIKit
 import Firebase
+import Stripe
+import Contacts
 
 extension OfferViewController: OfferDelegate {
     
+    func showMarkShippedAddTrackingNumber(_ complete: @escaping (String?) -> ()) {
+        let alert = UIAlertController.init(title: "Attach Tracking Number", message: nil, preferredStyle: .alert)
+        alert.addTextField { (textfield) in
+            textfield.placeholder = "Tracking Number"
+        }
+        alert.addAction(UIAlertAction.init(title: "Mark Shipped", style: .default, handler: { (action) in
+            if let tf = alert.textFields?.first {
+                complete(tf.text)
+            } else {
+                complete(nil)
+            }
+            alert.dismiss(animated: true, completion: nil)
+        }))
+        alert.addAction(UIAlertAction.init(title: "Cancel", style: .cancel, handler: nil))
+        
+        self.present(alert, animated: true, completion: nil)
+    }
+    
+    func presentApplePay() {
+        let merchantIdentifier = "merchant.plug.prettyboy"
+        let paymentRequest = Stripe.paymentRequest(withMerchantIdentifier: merchantIdentifier, country: "US", currency: "USD")
+        if  let total = self.offer?.amount,
+            let local = self.offer?.local {
+            if !(local) {
+                paymentRequest.requiredShippingContactFields = [PKContactField.name,PKContactField.postalAddress]
+            }
+            paymentRequest.paymentSummaryItems = [
+                // The final line should represent your company;
+                // it'll be prepended with the word "Pay" (i.e. "Pay iHats, Inc $50")
+                PKPaymentSummaryItem(label: "Pay PrettyBoy&Co", amount: NSDecimalNumber.init(value: total)),
+            ]
+            if let applePayContext = STPApplePayContext(paymentRequest: paymentRequest, delegate: self) {
+                // Present Apple Pay payment sheet
+                applePayContext.presentApplePay(on: self)
+            } else {
+                // There is a problem with your Apple Pay configuration
+            }
+
+        }
+    }
     
     func offerUpdated() {
+        print("offer updated")
         self.offer?.createSummaryView(width: self.view.frame.size.width)
-        self.table?.reloadData()
+        self.view.addSubview(self.offer!.summaryView!)
+        self.view.bringSubviewToFront(self.offer!.summaryView!)
+        self.table?.contentInset.top = self.offer!.summaryView!.frame.size.height
     }
     
     func messageInserted(index: Int?) {
         if let index = index {
             self.sections.updateSection(title: .OfferMessages, rows: index+1)
+            let indexPath = IndexPath.init(row: index, section: 0)
             self.table?.beginUpdates()
-            self.table?.insertRows(at: [IndexPath.init(row: index, section: 0)], with: .fade)
+            self.table?.insertRows(at: [indexPath], with: .fade)
             self.table?.endUpdates()
+            self.table?.scrollToRow(at: indexPath, at: .bottom, animated: true)
         } else {
-            self.sections.updateSection(title: .OfferMessages, rows: self.offer!.messages!.count)
-            self.table?.beginUpdates()
-            self.table?.insertSections(IndexSet.init(integer: 0), with: .fade)
-            self.table?.endUpdates()
+            if let count = self.offer?.messages?.count {
+                self.sections.updateSection(title: .OfferMessages, rows: count)
+                self.table?.reloadData()
+                if count > 0 {
+                    self.table?.scrollToRow(at: IndexPath.init(row: count-1, section: 0), at: .bottom, animated: true)
+                }
+                
+            }
+            
+//            self.table?.beginUpdates()
+//            self.table?.insertSections(IndexSet.init(integer: 0), with: .fade)
+//            self.table?.endUpdates()
         }
     }
 }
 
 class OfferViewController: UIViewController, UIAdaptivePresentationControllerDelegate {
     
+    var currentOffer = false
     var offer:Offer?
     let item:Item
     let sections = SectionController()
@@ -41,11 +97,6 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
     
     func presentationControllerShouldDismiss(_ presentationController: UIPresentationController) -> Bool {
         if keyboardHeight == nil {
-            self.offer?.listener?.remove()
-            self.offer?.listener = nil
-            self.offer?.messageListener?.remove()
-            self.offer?.messageListener = nil
-            self.offer?.delegate = nil
             return true
         }
         return false
@@ -65,6 +116,7 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
     }
     
     init(offer: inout Offer) {
+        self.currentOffer = true
         self.item = Item.init(offer.item!)
         self.offer = offer
         super.init(nibName: nil, bundle: nil)
@@ -80,7 +132,8 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
                 "date"      : FieldValue.serverTimestamp(),
                 "item"      : itemID,
                 "customer"  : uid,
-                "seller"    : itemSeller
+                "seller"    : itemSeller,
+                "parties"   : [uid, itemSeller]
             ]) { (error) in
                 if let error = error {
                     print(error.localizedDescription)
@@ -100,7 +153,12 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
     var offerListening = false
     
     func updateOffer() {
-        if (offer != nil) && (offerListening == false) {
+        if currentOffer && (offer?.isPopulated ?? false) && (offer?.messageListener != nil) {
+            self.sections.updateSection(title: .OfferMessages, rows: self.offer?.messages?.count ?? 0)
+            self.table?.reloadData()
+            self.offerUpdated()
+        } else if (offer != nil) && (offerListening == false){
+            print("updating offer")
             self.offerListening = true
             self.offer!.updateData()
             self.offer?.updateMessages()
@@ -128,6 +186,7 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
         self.table?.delegate = self
         self.table?.dataSource = self
         self.table?.separatorStyle = .none
+        self.table?.showsVerticalScrollIndicator = false
         self.view.addSubview(self.table!)
         super.viewDidLoad()
         updateOffer()
@@ -142,12 +201,13 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
             if self.messageComposeView.frame.origin.y == originalBottomChatY {
                 keyboardHeight = keyboardSize.height
                 self.messageComposeView.frame.origin.y -= keyboardHeight!
-//                self.table?.contentInset.bottom = self.table!.contentInset.bottom + keyboardSize.height + messageComposeView.frame.size.height
                 self.table?.frame.size.height -= keyboardHeight!
-                if let maxIndex = self.offer?.messages?.count {
-                    self.table?.scrollToRow(at: IndexPath.init(row: maxIndex-1, section: 0), at: .bottom, animated: true)
+                if self.offer?.messages != nil {
+                    let count = self.offer!.messages?.count ?? 0
+                    if count > 0 {
+                        self.table?.scrollToRow(at: IndexPath.init(row: count-1, section: 0), at: .bottom, animated: true)
+                    }
                 }
-                
             }
         }
     }
@@ -169,7 +229,7 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
         if let bottomBarHeight = UIApplication.shared.windows.first?.safeAreaInsets.bottom {
             
             let margin = CGFloat(15)
-            textviewHeight = "Message".height(withConstrainedWidth: self.view.frame.size.width-30, font: UIFont.systemFont(ofSize: 14))+20
+            textviewHeight = "Message".height(withConstrainedWidth: self.view.frame.size.width-30, font: UIFont.systemFont(ofSize: 18))+20
             originalBottomChatY = self.view.frame.size.height-bottomBarHeight-(margin*2)-textviewHeight-30
             messageComposeView.frame = CGRect.init(origin: CGPoint.init(x: 0, y: originalBottomChatY), size: CGSize.init(width: self.view.frame.size.width, height: self.view.frame.size.height/2))
             let blur = UIVisualEffectView.init(effect: UIBlurEffect.init(style: .prominent))
@@ -192,7 +252,7 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
             sendButton.addTarget(self, action: #selector(sendMessage), for: .touchUpInside)
             sendButton.backgroundColor = .systemGray3
             sendButton.tag = 0
-            sendButton.setImage(UIImage.init(systemName: "paperplane.fill"), for: .normal)
+            sendButton.setImage(UIImage.init(systemName: "arrow.up"), for: .normal)
             sendButton.imageEdgeInsets = UIEdgeInsets.init(top: 7, left: 7, bottom: 7, right: 7)
             sendButton.imageView?.tintColor = .white
             sendButton.layer.cornerRadius = sendButton.frame.size.width/2
@@ -200,8 +260,7 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
             messageComposeView.addSubview(sendButton)
             
             self.view.addSubview(messageComposeView)
-            self.table?.contentInset.bottom = textviewHeight + 75
-            self.table?.verticalScrollIndicatorInsets.bottom = self.table!.contentInset.bottom + 20
+            self.table?.contentInset.bottom = textviewHeight + 65
         }
     }
     
@@ -261,6 +320,8 @@ extension OfferViewController: UITableViewDataSource,UITableViewDelegate,UITextV
         // #warning Incomplete implementation, return the number of sections
         return self.sections.count
     }
+    
+    
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
@@ -284,15 +345,16 @@ extension OfferViewController: UITableViewDataSource,UITableViewDelegate,UITextV
         switch identifier {
         case .OfferMessages:
             let cell = UITableViewCell.init(style: .default, reuseIdentifier: nil)
+            cell.selectionStyle = .none
             cell.backgroundColor = .clear
             if let message = self.offer?.messages?[indexPath.row] {
                 let textview = UITextView.init(frame: CGRect.init(origin: CGPoint.init(x: 15, y: 2.5), size: message.getFrame(width: &self.messageWidth)))
                 textview.textContainerInset = UIEdgeInsets.init(top: 5, left: 5, bottom: 5, right: 5)
                 textview.isScrollEnabled = false
                 textview.text = message.text
-                textview.font = UIFont.systemFont(ofSize: 14)
+                textview.font = UIFont.systemFont(ofSize: 18)
                 
-                textview.layer.cornerRadius = 12
+                textview.layer.cornerRadius = 14
                 textview.layer.masksToBounds = true
                 
                 if message.amSender {
@@ -312,18 +374,65 @@ extension OfferViewController: UITableViewDataSource,UITableViewDelegate,UITextV
             return UITableViewCell()
         }
     }
-    
-    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        if section == 0 {
-            return offer?.summaryView
+}
+
+extension OfferViewController: STPApplePayContextDelegate {
+    func applePayContext(_ context: STPApplePayContext, didCreatePaymentMethod paymentMethod: STPPaymentMethod, paymentInformation: PKPayment, completion: @escaping STPIntentClientSecretCompletionBlock) {
+        if let contactName = paymentInformation.shippingContact?.name,
+            let contactAddress = paymentInformation.shippingContact?.postalAddress {
+            let name = PersonNameComponentsFormatter.localizedString(from: contactName, style: .default, options: [])
+            let address = CNPostalAddressFormatter.string(from: contactAddress, style: .mailingAddress)
+            getPaymentIntent(name: name, address: address, method: paymentMethod.stripeId) { (secret) in
+                completion(secret, nil)
+            }
+        } else {
+            getPaymentIntent(name: nil, address: nil, method: paymentMethod.stripeId) { (secret) in
+                completion(secret, nil)
+            }
         }
-        return nil
+    }
+
+    func applePayContext(_ context: STPApplePayContext, didCompleteWith status: STPPaymentStatus, error: Error?) {
+          switch status {
+        case .success:
+            
+            break
+        case .error:
+            // Payment failed, show the error
+            break
+        case .userCancellation:
+            // User cancelled the payment
+            break
+        @unknown default:
+            print("yo")
+            print(error?.localizedDescription ?? "error")
+//            fatalError()
+        }
     }
     
-    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        if section == 0 {
-            return offer?.summaryView?.frame.size.height ?? 0
+    func getPaymentIntent(name: String?, address: String?, method: String, completion: @escaping (String?) -> ()) {
+        var offerPaymentData = [String:Any]()
+        offerPaymentData["offer"] = self.offer!.id
+        offerPaymentData["item"] = self.item.id!
+        offerPaymentData["method"] = method
+        if  let name = name,
+            let address = address {
+            offerPaymentData["shipping_name"] = name
+            offerPaymentData["shipping_address"] = address
         }
-        return 0
+        Functions.functions().httpsCallable("purchaseItem").call(offerPaymentData) { (result, error) in
+            if let error = error as NSError? {
+                if error.domain == FunctionsErrorDomain {
+                    let message = error.localizedDescription
+                    print("ERROR: \(message)")
+                    completion(nil)
+                    return
+                }
+            }
+            if let data = result?.data as? String {
+                completion(data)
+                return
+            }
+        }
     }
 }

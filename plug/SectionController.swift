@@ -14,23 +14,40 @@ class SectionController {
         var showHeader:Bool = false
         var headerText:String = ""
         
-        enum Identifier:String {
-            case ItemMetrics = "item metrics"
-            case ItemDetails = "item details"
-            case ItemImages = "item images"
-            case ItemNaming = "item naming"
-            case ItemClassification = "item classification"
-            case ItemSizing = "item sizing"
-            case ItemPricing = "item pricing"
+        enum Identifier: String {
+            case ItemMetrics = "metrics"
+            case ItemDetails = "details"
+            case ItemImages = "images"
+            case ItemNaming = "naming"
+            case ItemClassification = "classification"
+            case ItemSizing = "sizing"
+            case ItemPricing = "pricing"
             case Actions = "actions"
-            case Authentication = "authentication"
+            case Authentication = "auth"
             case PublicProfile = "public profile"
             
-            case OfferMessages = "offer messages"
+            case OfferAmount = "offer amount"
+            case OfferLocal = "offer local"
+            case OfferCash = "offer cash"
+            case OfferSubmit = "offer submit"
+            
+            case OfferNotSubmitted = "offer not submitted"
+            case OfferMessages = "offer mesasages"
             case OfferComposer = "offer composer"
             case OfferPending = "offer pending"
+            case OfferSellerAccept = "offer seller accept"
+            case OfferCashCompletion = "offer cash pending complete"
+            case OfferSellerMarkComplete = "offer seller mark complete"
+            case OfferCardCompletion = "offer card completion"
+            case OfferCustomerCardPayment = "offer card payment"
+            case OfferPaid = "offer paid"
+            case OfferShippingAddress = "shipping address"
+            case OfferSellerMarkShipped = "mark shipped"
+            case OfferShipped = "offer shipped"
+            case OfferTrackShipped = "track"
+            case OfferComplete = "offer complete"
             
-            case MyStuffOffers = "my stuff offers"
+            case MyStuffOffers = "my stuff offer"
             case MyStuffFavorites = "my stuff favorites"
         }
     }
@@ -113,7 +130,7 @@ class SectionController {
             if !(self.sections[index].headerText.isEmpty) {
                 return self.sections[index].headerText
             }
-            return self.sections[index].title.rawValue
+            return nil
         }
         return nil
     }

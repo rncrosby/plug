@@ -87,7 +87,7 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
-        let cell = UITableViewCell.init(style: .default, reuseIdentifier: identifier.rawValue)
+        let cell = UITableViewCell.init(style: .default, reuseIdentifier: nil)
         cell.backgroundColor = .systemGroupedBackground
         switch identifier {
         case .ItemNaming:

@@ -159,7 +159,8 @@ class Item: NSObject {
                 "tags"      : tags,
                 "images"    : imageUrlArray,
                 "seller"    : uid,
-                "posted"    : FieldValue.serverTimestamp()
+                "posted"    : FieldValue.serverTimestamp(),
+                "sold"      : false
             ]
         }
         return nil

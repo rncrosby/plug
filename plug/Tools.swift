@@ -3,6 +3,11 @@ import UIKit
 import Firebase
 
 extension String  {
+    
+    var isNotEmpty: Bool {
+        return !(self.isEmpty)
+    }
+    
     var isNumber: Bool {
         return !isEmpty && rangeOfCharacter(from: CharacterSet.decimalDigits.inverted) == nil
     }
@@ -92,25 +97,34 @@ func downloadData(url: URL, completion: @escaping (_ data: Data?, _  response: U
         }.resume()
 }
 
-func justFetchItemName(_ itemID: String, _ completion: @escaping (String) -> Void) {
-    if let name = UserDefaults.standard.string(forKey: "\(itemID)_name") {
-        completion(name)
+typealias ItemName = String
+typealias ItemImageUrl = String
+
+func fetchItemDetail(_ itemID: String, _ completion: @escaping (ItemName?, ItemImageUrl?) -> Void) {
+    if  let saved_name = UserDefaults.standard.string(forKey: "\(itemID)_name"),
+        let saved_image = UserDefaults.standard.string(forKey: "\(itemID)_image") {
+        completion(saved_name, saved_image)
         return
     }
     Firestore.firestore().collection("items").document(itemID).getDocument { (snapshot, error) in
         if let error = error {
             print(error.localizedDescription)
-            completion("Unknown Item")
+            completion(nil,nil)
             return
         }
         if let data = snapshot?.data() {
-            if let name = data["name"] as? String {
-                UserDefaults.standard.set(name, forKey: "\(itemID)_name")
-                completion(name)
-                return
+            let first_image = (data["images"] as? [String])?.first ?? ""
+            let name = data["name"] as? String ?? ""
+            if first_image.isNotEmpty {
+                UserDefaults.standard.set(first_image, forKey: "\(itemID)_image")
             }
+            if name.isNotEmpty {
+                UserDefaults.standard.set(name, forKey: "\(itemID)_name")
+            }
+            completion(name,first_image)
+            
         }
-        completion("Unkown Item")
+        completion(nil,nil)
         return
     }
 }

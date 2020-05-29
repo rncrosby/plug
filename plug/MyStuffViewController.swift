@@ -10,40 +10,39 @@ import UIKit
 
 class MyStuffViewController: UITableViewController {
     
+    weak var rootDelegate:RootDelegate?
     var sections = SectionController()
     var favorites:[Item]?
     
     func favoritesChanged(_ favorites: inout [Item]) {
         self.favorites = favorites
-        self.updateTabBarItem()
+        
         self.sections.updateSection(title: .MyStuffFavorites, rows: self.favorites?.count ?? 0)
         self.sections.setHeaderTextForSection(.MyStuffFavorites, "Favorites")
+        self.updateTable()
     }
     
     var offers:[Offer]?
     
     func offersChanged(_ offers: inout [Offer]) {
         self.offers = offers
-        self.updateTabBarItem()
+        
         self.sections.updateSection(title: .MyStuffOffers, rows: self.offers?.count ?? 0)
         self.sections.setHeaderTextForSection(.MyStuffOffers, "Offers")
+        self.updateTable()
     }
     
-    func updateTabBarItem() {
-        let count = 0 + (self.favorites?.count ?? 0) + (self.offers?.count ?? 0)
-        if count > 0 {
-            self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "\(count).square"), selectedImage: UIImage.init(systemName: "\(count).square.fill"))
-        } else {
-            self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "square"), selectedImage: UIImage.init(systemName: "square.fill"))
-        }
+    func updateTable() {
+        
         self.sections.orderSections([.MyStuffOffers, .MyStuffFavorites])
         self.tableView.reloadData()
     }
     
     init() {
-        super.init(style: .insetGrouped)
-        self.updateTabBarItem()
-        self.title = "For You"
+        super.init(style: .grouped)
+        self.title = "Your Bag"
+        self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "bag"), selectedImage: UIImage.init(systemName: "bag.fill"))
+        
     }
     
     required init?(coder: NSCoder) {
@@ -51,15 +50,26 @@ class MyStuffViewController: UITableViewController {
     }
     
     override func viewDidLoad() {
-        self.tableView.backgroundColor = .secondarySystemBackground
+        self.tableView.backgroundColor = .secondarySystemGroupedBackground
+        self.tableView.separatorInset = UIEdgeInsets.init(top: 0, left: 15, bottom: 0, right: 15)
+        self.tableView.register(UINib(nibName: "OfferCell", bundle: nil), forCellReuseIdentifier: "OfferCell")
 //        self.tableView.contentInset.top+=35
         super.viewDidLoad()
-
+        
+        
+        let refresh = UIRefreshControl.init()
+        refresh.addTarget(self, action: #selector(refreshStuff(_:)), for: .valueChanged)
+        self.tableView.refreshControl = refresh
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
 
         // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
         // self.navigationItem.rightBarButtonItem = self.editButtonItem
+    }
+    
+    @objc func refreshStuff(_ sender: UIRefreshControl) {
+        self.rootDelegate?.refreshMyStuff()
+        sender.endRefreshing()
     }
 
     // MARK: - Table view data source
@@ -70,7 +80,7 @@ class MyStuffViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let view = UIView.init(frame: CGRect.init(origin: .zero, size: CGSize.init(width: self.view.frame.size.width, height: 54)))
-        let label = UILabel.init(frame: CGRect.init(origin: CGPoint.init(x: 0, y: 0), size: CGSize.init(width: view.frame.size.width, height: view.frame.size.height)))
+        let label = UILabel.init(frame: CGRect.init(origin: CGPoint.init(x: 15, y: 0), size: CGSize.init(width: view.frame.size.width-30, height: view.frame.size.height)))
         label.font = titleFont
         label.textColor = .label
         label.text = self.sections.titleForSectionAtIndex(section)
@@ -89,25 +99,51 @@ class MyStuffViewController: UITableViewController {
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: nil)
-        cell.backgroundColor = .systemGroupedBackground
+        
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
         switch identifier {
         case .MyStuffOffers:
-            cell.textLabel?.font = buttonFont
+            let cell = tableView.dequeueReusableCell(withIdentifier: "OfferCell") as! OfferCell
+            cell.backgroundColor = .systemGroupedBackground
+//            cell.itemName?.font = buttonFont
             if let offer = self.offers?[indexPath.row] {
-                justFetchItemName(offer.item!) { (name) in
-                    cell.textLabel?.text = name
+                cell.itemImageView.backgroundColor = .systemGroupedBackground
+                cell.itemImageView.layer.cornerRadius = 5
+                cell.itemImageView.layer.masksToBounds = true
+//                cell.offerStatus.text = offer.offerStatusString
+                fetchItemDetail(offer.item!) { (name, imageUrl) in
+                    if let name = name {
+                        cell.itemName.text = name
+                    }
+                    if let imageUrl = imageUrl {
+                        downloadImage(url: URL.init(string: imageUrl)!) { (image, error) in
+                            if let error = error {
+                                print(error)
+                            }
+                            print("image downloaded")
+                            
+                            if let image = image {
+                                DispatchQueue.main.async {
+                                    cell.itemImageView.image = image
+                                }
+                                
+                            }
+                        }
+                    }
                 }
             }
+            return cell
         case .MyStuffFavorites:
+            let cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: nil)
+            cell.backgroundColor = .systemGroupedBackground
+            cell.imageView?.backgroundColor = .systemRed
             if let favorite = self.favorites?[indexPath.row] {
                 cell.textLabel?.text = favorite.name!
             }
+            return cell
         default:
-            break
+            return UITableViewCell()
         }
-        return cell
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -116,10 +152,11 @@ class MyStuffViewController: UITableViewController {
         case .MyStuffOffers:
             self.present(OfferViewController.init(offer: &self.offers![indexPath.row]), animated: true, completion: nil)
         case .MyStuffFavorites:
-            self.present(ItemViewController.init(item: &self.favorites![indexPath.row]), animated: true, completion: nil)
+            self.navigationController?.pushViewController(ItemViewController.init(item: &self.favorites![indexPath.row]), animated: true)
         default:
             break
         }
+        self.tableView.deselectRow(at: indexPath, animated: true)
     }
 
 }

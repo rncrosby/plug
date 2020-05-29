@@ -10,6 +10,7 @@ import UIKit
 
 class ItemViewController: UITableViewController {
     
+    weak var browseDelegate:BrowseDelegate?
     var item:Item
     let sections = SectionController()
     var itemSize:CGSize?
@@ -18,7 +19,7 @@ class ItemViewController: UITableViewController {
     var notificationButton:UIBarButtonItem?
     
     var imageCollection:UICollectionView?
-    
+
     init( item: inout Item) {
         self.item = item
         super.init(style: .grouped)
@@ -201,13 +202,16 @@ class ItemViewController: UITableViewController {
             if current {
                 self.item.unfavoriteItem()
                 self.favoriteButton?.tintColor = .systemGray3
+                self.browseDelegate?.itemFavoriteToggled?(false)
             } else {
                 self.item.favoriteItem()
                 self.favoriteButton?.tintColor = .systemRed
+                self.browseDelegate?.itemFavoriteToggled?(true)
             }
         } else {
             self.item.favoriteItem()
             self.favoriteButton?.tintColor = .systemRed
+            self.browseDelegate?.itemFavoriteToggled?(true)
         }
     }
     

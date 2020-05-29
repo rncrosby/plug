@@ -11,6 +11,16 @@ import Firebase
 
 private let reuseIdentifier = "Cell"
 
+@objc protocol BrowseDelegate: class {
+    @objc optional func itemFavoriteToggled(_ status: Bool)
+}
+
+extension BrowseViewController: BrowseDelegate {
+    @objc func itemFavoriteToggled(_ status: Bool) {
+        self.selectedItemHeart?.image = status ? UIImage.init(systemName: "heart.fill")?.withRenderingMode(.alwaysTemplate) : nil
+    }
+}
+
 class BrowseViewController: UICollectionViewController {
     
     var items = [Item]()
@@ -95,12 +105,13 @@ class BrowseViewController: UICollectionViewController {
                 label.text = "\(title.uppercased())"
                 label.sizeToFit()
             }
+            let heart = UIImageView.init(frame: CGRect.init(x: self.itemSize.width-20, y: view.frame.maxY+10, width: 20, height: 15))
+            heart.tag = -5
+            heart.tintColor = .systemRed
+            cell.addSubview(heart)
             item.checkIfFavoritedItem { (isFavorite) in
                 if isFavorite {
-                    let heart = UIImageView.init(frame: CGRect.init(x: self.itemSize.width-20, y: view.frame.maxY+10, width: 20, height: 15))
                     heart.image = UIImage.init(systemName: "heart.fill")?.withRenderingMode(.alwaysTemplate)
-                    heart.tintColor = .systemRed
-                    cell.addSubview(heart)
                 }
             }
         }
@@ -108,18 +119,22 @@ class BrowseViewController: UICollectionViewController {
         return cell
     }
 
-    var selectedItemIndex:IndexPath?
+    var selectedItemHeart:UIImageView?
     
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        self.selectedItemIndex = indexPath
+        let cell = collectionView.cellForItem(at: indexPath)
+        self.selectedItemHeart = cell?.subviews.first(where: { (v) -> Bool in
+            return v.tag == -5
+        }) as? UIImageView
         let itemViewController = ItemViewController.init(item: &self.items[indexPath.item])
+        itemViewController.browseDelegate = self
         itemViewController.hidesBottomBarWhenPushed = true
         self.navigationController?.pushViewController(itemViewController, animated: true)
         
     }
 
     func getLatest(_ complete: @escaping () -> Void) {
-        Firestore.firestore().collection("items").addSnapshotListener { (snapshot, error) in
+        Firestore.firestore().collection("items").whereField("sold", isEqualTo: false).addSnapshotListener { (snapshot, error) in
             guard let snapshot = snapshot else {
                 print("\(error!.localizedDescription)")
                 complete()
@@ -131,7 +146,6 @@ class BrowseViewController: UICollectionViewController {
                         let item = Item.init(change.document.documentID)
                         item.attachData(change.document.data())
                         self.items.append(item)
-//
                         self.collectionView.insertItems(at: [IndexPath.init(item: self.items.count-1, section: 0)])
                     }
 //                    else if change.type == .removed {

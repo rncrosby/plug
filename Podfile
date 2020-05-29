@@ -8,6 +8,7 @@ target 'plug' do
 	pod 'Firebase/Messaging'
  	pod 'Firebase/Storage'
  	pod 'Firebase/Auth'
+	pod 'Stripe'
   use_frameworks!
 
   # Pods for plug

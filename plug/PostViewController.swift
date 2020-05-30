@@ -52,6 +52,8 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
     
     @objc func clearInput(sender: UIRefreshControl) {
         item = .init()
+        self.imagesUploaded = 0
+        item.delegate = self
         self.tableView.beginUpdates()
         self.tableView.reloadSections(IndexSet.init(0..<self.sections.count), with: .fade)
         self.tableView.endUpdates()
@@ -121,7 +123,7 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
                 }
             } else {
                 textfield.placeholder = "Medium"
-                sizes = ["Small","Medium","Large","X-Large","XX-Large"]
+                sizes = ["Small","Medium","Large","XL","XXL"]
             }
             setInputSizePicker(textfield: textfield)
             textfield.font = .systemFont(ofSize: 24, weight: .bold)

@@ -15,6 +15,9 @@ class SectionController {
         var headerText:String = ""
         
         enum Identifier: String {
+            
+            case Browse = "browse"
+            
             case ItemMetrics = "metrics"
             case ItemDetails = "details"
             case ItemImages = "images"
@@ -41,6 +44,7 @@ class SectionController {
             case OfferCardCompletion = "offer card completion"
             case OfferCustomerCardPayment = "offer card payment"
             case OfferPaid = "offer paid"
+            case OfferRecieptPreview = "offer receipt"
             case OfferShippingAddress = "shipping address"
             case OfferSellerMarkShipped = "mark shipped"
             case OfferShipped = "offer shipped"
@@ -49,6 +53,16 @@ class SectionController {
             
             case MyStuffOffers = "my stuff offer"
             case MyStuffFavorites = "my stuff favorites"
+            
+            
+            case AccountSellerSummary = "seller summary"
+            case AccountCustomerSummary = "customer summary"
+            
+            
+            case ForYouSearch = "search"
+            case ForYouResults = "results"
+            case ForYouTags = "tags"
+            case ForYouFavorites = "favorites"
         }
     }
     
@@ -106,23 +120,27 @@ class SectionController {
     }
     
     // TODO: Return specific changes made for cleaner animation
-    func updateSection(title: Section.Identifier, rows: Int) {
+    func updateSection(title: Section.Identifier, rows: Int) -> (Bool, Int) {
         if let index = self.sections.firstIndex(where: { (section) -> Bool in
             return section.title == title
         }) {
             // already exists, update
             self.sections[index].rows = rows
+            return (false, index)
         } else {
             self.sections.append(Section.init(title: title, rows: rows))
+            return (true, self.sections.count-1)
         }
     }
     
-    func removeSection(title: Section.Identifier) {
+    func removeSection(title: Section.Identifier) -> Int? {
         if let index = self.sections.firstIndex(where: { (section) -> Bool in
                    return section.title == title
             }) {
             self.sections.remove(at: index)
+            return index
         }
+        return nil
     }
     
     func titleForSectionAtIndex(_ index: Int) -> String? {

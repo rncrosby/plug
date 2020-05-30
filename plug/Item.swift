@@ -135,13 +135,13 @@ class Item: NSObject {
         {
             var tags = [String]()
             tags.append(documentID)
-            tags.append(name)
+            tags.append(name.lowercased())
             for word in name.components(separatedBy: " ") {
-                tags.append(word)
+                tags.append(word.lowercased())
             }
-            tags.append(size)
+            tags.append(size.lowercased())
             for word in size.components(separatedBy: " ") {
-                tags.append(word)
+                tags.append(word.lowercased())
             }
             tags.append(self.kind.rawValue)
             var imageUrlArray = [String]()

@@ -50,7 +50,7 @@ class ItemViewController: UITableViewController {
         imageCollection?.isUserInteractionEnabled = true
         imageCollection?.showsHorizontalScrollIndicator = false
         self.tableView.separatorStyle = .none
-        self.tableView.backgroundColor = .secondarySystemGroupedBackground
+        self.tableView.backgroundColor = .systemGroupedBackground
         
         super.viewDidLoad()
         

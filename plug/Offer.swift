@@ -4,7 +4,9 @@ import Firebase
 import PassKit
 
 protocol OfferDelegate: class {
+    func offerDeclined()
     func offerUpdated()
+    func presentTransactionView(_ transaction: Transaction)
     func messageInserted(index: Int?)
     func presentApplePay()
     func showMarkShippedAddTrackingNumber(_ complete: @escaping (String?) -> ())
@@ -28,6 +30,7 @@ class Offer: NSObject {
     var item:String?
     var customer:String?
     var seller:String?
+    var complete:Bool
     
     var amount:Int?
     var local:Bool?
@@ -37,17 +40,42 @@ class Offer: NSObject {
     var shipping_address:String?
     var shipped:Bool?
     var tracking_number:String?
-    var complete:Bool?
-
+    
+    var statusText: String {
+        if complete {
+            return "Sale complete"
+        }
+        if accepted ?? false {
+            if cash ?? false {
+                return "Organize meetup to complete sale"
+            }
+            if payment == nil {
+                return "Waiting for payment"
+            }
+            if shipped ?? false {
+                return "Item Shipped, waiting to be recieved"
+            } else {
+                return "Waiting for shipment"
+            }
+        } else {
+            return "Waiting for seller to accept offer"
+        }
+        
+    }
+    
     var accepted:Bool?
+    
+    var paymentIntent:Transaction?
     
     init(preliminary: DocumentReference, amount: Int) {
         self.reference = preliminary
         self.offerComposerAmount = amount
+        self.complete = false
     }
     
     init(_ reference: DocumentReference) {
         self.reference = reference
+        self.complete = false
     }
     
     init(fromQuery: QueryDocumentSnapshot) {
@@ -65,7 +93,7 @@ class Offer: NSObject {
         self.shipping_address = fromQuery.data()["shipping_address"] as? String
         self.shipped = fromQuery.data()["shipped"] as? Bool
         self.tracking_number = fromQuery.data()["tracking_number"] as? String
-        self.complete = fromQuery.data()["complete"] as? Bool
+        self.complete = fromQuery.data()["complete"] as! Bool
         self.isPopulated = true
     }
 
@@ -90,7 +118,7 @@ class Offer: NSObject {
                     self.shipping_address = data["shipping_address"] as? String
                     self.shipped = data["shipped"] as? Bool
                     self.tracking_number = data["tracking_number"] as? String
-                    self.complete = data["complete"] as? Bool
+                    self.complete = data["complete"] as! Bool
                     self.isPopulated = true
                     self.delegate?.offerUpdated()
                 }
@@ -111,17 +139,27 @@ class Offer: NSObject {
         }
     }
     
-    func respondToOffer(_ accepted: Bool) {
+    func acceptOffer() {
         let batch = Firestore.firestore().batch()
-        batch.updateData(["accepted" : accepted], forDocument: self.reference)
-        if accepted {
-            batch.updateData(["pending": accepted], forDocument: Firestore.firestore().collection("items").document(self.item!))
-        }
+        batch.updateData(["accepted" : true], forDocument: self.reference)
+        batch.updateData(["sold": true], forDocument: Firestore.firestore().collection("items").document(self.item!))
         batch.commit { (error) in
             if let error = error {
                 print(error.localizedDescription)
                 return
             }
+        }
+    }
+    
+    func deleteOffer() {
+        let batch = Firestore.firestore().batch()
+        batch.deleteDocument(self.reference)
+        batch.updateData(["sold": false], forDocument: Firestore.firestore().collection("items").document(self.item!))
+        batch.commit { (error) in
+            if let error = error {
+                print(error.localizedDescription)
+            }
+            self.delegate?.offerDeclined()
         }
     }
     
@@ -149,6 +187,29 @@ class Offer: NSObject {
     
     func markReceived() {
         self.reference.updateData(["complete": true], completion: nil)
+    }
+    
+    func retrievePaymentInformation(_ complete: @escaping (Transaction?) -> ()) {
+        if let payment = self.payment {
+            if self.paymentIntent == nil {
+                Functions.functions().httpsCallable("getSingleCharge").call(["payment":payment]) { (result, error) in
+                    if let error = error as NSError? {
+                        if error.domain == FunctionsErrorDomain {
+                            let message = error.localizedDescription
+                            print("ERROR: \(message)")
+                            return
+                        }
+                    }
+                    if let data = result?.data as? [String:Any] {
+                        self.paymentIntent = Transaction.init(data: data)
+                        complete(self.paymentIntent)
+                        return
+                    }
+                }
+            } else {
+                complete(self.paymentIntent)
+            }
+        }
     }
     
     var messages:[Message]?
@@ -220,72 +281,23 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
             summaryView = UITableView.init(frame: CGRect.init(origin: .zero, size: CGSize.init(width: width, height: CGFloat(0))), style: .plain)
             summaryView?.backgroundColor = .clear
             summaryView?.showsVerticalScrollIndicator = false
-            self.summaryView?.separatorStyle = .none
+//            self.summaryView?.separatorStyle = .none
             summaryView?.delegate = self
             summaryView?.dataSource = self
             summaryView?.separatorInset = UIEdgeInsets.zero
-            
         }
         updateSummaryView()
     }
     
     func updateSummaryView() {
-        var height:CGFloat
+        var height = CGFloat(0)
         self.summarySections?.sections.removeAll()
-        if self.complete != nil {
-            self.summarySections?.updateSection(title: .OfferPending, rows: 1)
-            height = 90
-            self.summarySections?.updateSection(title: .OfferComplete, rows: 1)
-            height+=30
-        } else if self.shipped != nil {
-            self.summarySections?.updateSection(title: .OfferPending, rows: 1)
-            height = 90
-            self.summarySections?.updateSection(title: .OfferShipped, rows: 1)
-            height+=30
-            self.summarySections?.updateSection(title: .OfferTrackShipped, rows: 1)
-            height+=70
-        } else if self.payment != nil {
-            self.summarySections?.updateSection(title: .OfferPending, rows: 1)
-            height = 90
-            self.summarySections?.updateSection(title: .OfferPaid, rows: 1)
-            height+=30
-            if !(self.local!) {
-                if let uid = Auth.auth().currentUser?.uid {
-                    if uid == self.seller! {
-                        self.summarySections?.updateSection(title: .OfferShippingAddress, rows: 1)
-                        self.summarySections?.updateSection(title: .OfferSellerMarkShipped, rows: 1)
-                        height+=100+70
-                    }
-                }
-            }
-        } else if self.accepted != nil {
-            self.summarySections?.updateSection(title: .OfferPending, rows: 1)
-            height = 90
-            if  let cash = self.cash,
-                let uid = Auth.auth().currentUser?.uid {
-                    if cash {
-                        self.summarySections?.updateSection(title: .OfferCashCompletion, rows: 1)
-                        height+=30
-                        if self.seller! == uid {
-                            self.summarySections?.updateSection(title: .OfferSellerMarkComplete, rows: 1)
-                            height+=70
-                        }
-                    } else {
-                        self.summarySections?.updateSection(title: .OfferCardCompletion, rows: 1)
-                        height+=30
-                        if self.customer! == uid {
-                            self.summarySections?.updateSection(title: .OfferCustomerCardPayment, rows: 1)
-                            height+=70
-                        }
-                    }
-            }
-            
-        } else if self.amount == nil {
+        if self.amount == nil {
             if let uid = Auth.auth().currentUser?.uid {
                 if uid == self.customer {
                     self.summarySections?.updateSection(title: .OfferAmount, rows: 1)
                     self.summarySections?.updateSection(title: .OfferLocal, rows: 1)
-                    height = 120
+                    height+=120
                     if self.offerComposerIsLocal ?? false {
                         self.summarySections?.updateSection(title: .OfferCash, rows: 1)
                         height+=60
@@ -294,25 +306,68 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
                     height+=70
                 } else {
                     self.summarySections?.updateSection(title: .OfferNotSubmitted, rows: 1)
-                    height = 90
+                    height+=90
                 }
             } else {
-                height = 0
-            }
-            
-        } else if self.accepted == nil {
-            self.summarySections?.updateSection(title: .OfferPending, rows: 1)
-            height = 90
-            if let uid = Auth.auth().currentUser?.uid,
-                let seller = self.seller {
-                if uid == seller {
-                    self.summarySections?.updateSection(title: .OfferSellerAccept, rows: 1)
-                    height+=70
-                }
+                height+=0
             }
         } else {
-            height = 0
+            self.summarySections?.updateSection(title: .OfferPending, rows: 1)
+            height+=80
+            if self.payment != nil {
+                self.summarySections?.updateSection(title: .OfferRecieptPreview, rows: 1)
+                height+=50
+            }
+            if self.complete == true {
+            
+            } else if self.shipped != nil {
+                self.summarySections?.updateSection(title: .OfferShipped, rows: 1)
+                height+=30
+                self.summarySections?.updateSection(title: .OfferTrackShipped, rows: 1)
+                height+=70
+            } else if self.payment != nil {
+                self.summarySections?.updateSection(title: .OfferPaid, rows: 1)
+                height+=30
+                if !(self.local!) {
+                    if let uid = Auth.auth().currentUser?.uid {
+                        if uid == self.seller! {
+                            self.summarySections?.updateSection(title: .OfferShippingAddress, rows: 1)
+                            self.summarySections?.updateSection(title: .OfferSellerMarkShipped, rows: 1)
+                            height+=100+70
+                        }
+                    }
+                }
+            } else if self.accepted != nil {
+                if  let cash = self.cash,
+                    let uid = Auth.auth().currentUser?.uid {
+                        if cash {
+                            self.summarySections?.updateSection(title: .OfferCashCompletion, rows: 1)
+                            height+=30
+                            if self.seller! == uid {
+                                self.summarySections?.updateSection(title: .OfferSellerMarkComplete, rows: 1)
+                                height+=70
+                            }
+                        } else {
+                            self.summarySections?.updateSection(title: .OfferCardCompletion, rows: 1)
+                            height+=30
+                            if self.customer! == uid {
+                                self.summarySections?.updateSection(title: .OfferCustomerCardPayment, rows: 1)
+                                height+=70
+                            }
+                        }
+                }
+                
+            } else if self.accepted == nil {
+                if let uid = Auth.auth().currentUser?.uid,
+                    let seller = self.seller {
+                    if uid == seller {
+                        self.summarySections?.updateSection(title: .OfferSellerAccept, rows: 1)
+                        height+=70
+                    }
+                }
+            }
         }
+        
         self.summaryView?.reloadData()
         if summaryViewBlur == nil {
             summaryViewBlur = UIVisualEffectView.init(effect: UIBlurEffect.init(style: .prominent))
@@ -387,14 +442,21 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
             cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: nil)
             cell.textLabel?.text = "$\(self.amount ?? 0)"
             cell.textLabel?.font = titleFont
+            
             cell.selectionStyle = .none
             cell.detailTextLabel?.text = "..."
             cell.detailTextLabel?.font = buttonFont
+            cell.detailTextLabel?.adjustsFontSizeToFitWidth = true
             fetchItemDetail(self.item!) { (name, _) in
                 if let name = name {
                     cell.detailTextLabel?.text = name
                 }
             }
+        case .OfferRecieptPreview:
+            cell = UITableViewCell.init(style: .default, reuseIdentifier: nil)
+            cell.textLabel?.font = buttonFont
+            cell.textLabel?.text = "View Receipt"
+            cell.accessoryType = .disclosureIndicator
         case .OfferNotSubmitted:
             cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: nil)
             cell.textLabel?.font = titleFont
@@ -456,7 +518,7 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
             markComplete.backgroundColor = .systemRed
             markComplete.layer.cornerRadius = 5
             markComplete.layer.masksToBounds = true
-//            submitbutton.addTarget(self, action: #selector(tableSubmitOffer), for: .touchUpInside)
+            markComplete.addTarget(self, action: #selector(startMarkRecieved), for: .touchUpInside)
             cell.addSubview(markComplete)
             cell.selectionStyle = .none
         case .OfferSellerMarkShipped:
@@ -551,6 +613,13 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
                     tf.becomeFirstResponder()
                 }
             }
+        case .OfferRecieptPreview:
+            self.retrievePaymentInformation { (transaction) in
+                if let tx = transaction {
+                    self.delegate?.presentTransactionView(tx)
+                }
+                
+            }
         default:
             break
         }
@@ -564,7 +633,11 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
     }
     
     @objc func tableRespondToOffer(_ sender: UIButton) {
-        self.respondToOffer(sender.tag == 9)
+        if sender.tag == 9 {
+            self.acceptOffer()
+        } else {
+            self.deleteOffer()
+        }
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -574,13 +647,15 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
         } else if identifier == .OfferSellerAccept || identifier == .OfferSubmit || identifier == .OfferCustomerCardPayment || identifier == .OfferSellerMarkShipped || identifier == .OfferTrackShipped {
             return 70
         } else if identifier == .OfferPending || identifier == .OfferNotSubmitted {
-            return 90
+            return 80
         } else if identifier == .OfferCashCompletion || identifier == .OfferCardCompletion || identifier == .OfferPaid || identifier == .OfferShipped || identifier == .OfferComplete {
             return 30
         } else if identifier == .OfferSellerMarkComplete {
             return 90
         } else if identifier == .OfferShippingAddress {
             return 100
+        } else if identifier == .OfferRecieptPreview {
+            return 50
         }
         return 0
     }

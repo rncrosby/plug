@@ -9,7 +9,7 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
-        <tableViewCell contentMode="scaleToFill" selectionStyle="default" indentationWidth="10" reuseIdentifier="OfferCell" rowHeight="95" id="KGk-i7-Jjw" customClass="OfferCell" customModule="plug" customModuleProvider="target">
+        <tableViewCell contentMode="scaleToFill" selectionStyle="default" indentationWidth="10" reuseIdentifier="OfferCell" id="KGk-i7-Jjw" customClass="OfferCell" customModule="plug" customModuleProvider="target">
             <rect key="frame" x="0.0" y="0.0" width="320" height="100"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
             <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" tableViewCell="KGk-i7-Jjw" id="H2p-sc-9uM">
@@ -24,7 +24,7 @@
                         </constraints>
                     </imageView>
                     <textView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" scrollEnabled="NO" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" delaysContentTouches="NO" canCancelContentTouches="NO" editable="NO" text="This is an Item" selectable="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Lxa-xm-OZm">
-                        <rect key="frame" x="96" y="28" width="170" height="45"/>
+                        <rect key="frame" x="96" y="15" width="209" height="45"/>
                         <color key="textColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
                         <fontDescription key="fontDescription" type="boldSystem" pointSize="24"/>
                         <textInputTraits key="textInputTraits" autocapitalizationType="sentences"/>
@@ -32,10 +32,12 @@
                 </subviews>
                 <constraints>
                     <constraint firstAttribute="bottom" secondItem="DDO-zO-Hgg" secondAttribute="bottom" constant="15" id="FsJ-EU-8C2"/>
+                    <constraint firstAttribute="trailing" secondItem="Lxa-xm-OZm" secondAttribute="trailing" constant="15" id="HgC-yl-Lnb"/>
                     <constraint firstItem="DDO-zO-Hgg" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="15" id="Rjt-QC-b11"/>
-                    <constraint firstAttribute="bottom" secondItem="Lxa-xm-OZm" secondAttribute="bottom" constant="28" id="ipW-9e-ezN"/>
+                    <constraint firstAttribute="bottom" secondItem="Lxa-xm-OZm" secondAttribute="bottom" constant="15" id="S6K-Nr-klo"/>
+                    <constraint firstItem="Lxa-xm-OZm" firstAttribute="centerY" secondItem="H2p-sc-9uM" secondAttribute="centerY" id="VuE-dN-pQt"/>
                     <constraint firstItem="DDO-zO-Hgg" firstAttribute="leading" secondItem="H2p-sc-9uM" secondAttribute="leading" constant="16" id="tHn-67-Ome"/>
-                    <constraint firstItem="Lxa-xm-OZm" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="28" id="ugr-hq-WLu"/>
+                    <constraint firstItem="Lxa-xm-OZm" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="15" id="xxJ-Mg-d9X"/>
                     <constraint firstItem="Lxa-xm-OZm" firstAttribute="leading" secondItem="DDO-zO-Hgg" secondAttribute="trailing" constant="5" id="zZt-iR-VW3"/>
                 </constraints>
             </tableViewCellContentView>

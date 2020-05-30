@@ -11,11 +11,16 @@ import Firebase
 
 class AccountViewController: UITableViewController {
 
+    var seller = false
     weak var delegate:RootDelegate?
     let sections = SectionController()
     
+    
+    var customerTransactions:[Transaction]?
+    var salesTransactions:[Transaction]?
+    
     init() {
-        super.init(style: .grouped)
+        super.init(style: .insetGrouped)
         self.title = "Account"
         self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "person"), selectedImage: UIImage.init(systemName: "person.fill"))
     }
@@ -28,7 +33,10 @@ class AccountViewController: UITableViewController {
     override func viewDidLoad() {
         organizeTable()
         super.viewDidLoad()
-
+        
+        
+        self.tableView.refreshControl = UIRefreshControl.init()
+        self.tableView.refreshControl!.addTarget(self, action: #selector(refreshTable), for: .valueChanged)
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
 
@@ -36,15 +44,36 @@ class AccountViewController: UITableViewController {
         // self.navigationItem.rightBarButtonItem = self.editButtonItem
     }
     
+    @objc func refreshTable() {
+        self.tableView.refreshControl?.endRefreshing()
+        if seller {
+            self.getPastSales()
+        } else {
+            self.getCustomerTransactions()
+        }
+    }
+    
+    
+    
     func organizeTable() {
         self.sections.sections.removeAll()
         if Auth.auth().currentUser == nil {
             self.sections.updateSection(title: .Authentication, rows: 4)
+            self.navigationItem.leftBarButtonItem = nil
         } else {
-            self.sections.updateSection(title: .PublicProfile, rows: 2)
-            self.sections.updateSection(title: .Actions, rows: 1)
+            self.navigationItem.leftBarButtonItem = UIBarButtonItem.init(title: "Sign Out", style: .plain, target: self, action: #selector(signOut))
+            if seller {
+                self.getPastSales()
+            } else {
+                self.getCustomerTransactions()
+            }
         }
         self.tableView.reloadData()
+    }
+    
+    func insertSellerSection() {
+        seller = true
+        self.getPastSales()
     }
 
     // MARK: - Table view data source
@@ -52,6 +81,10 @@ class AccountViewController: UITableViewController {
     override func numberOfSections(in tableView: UITableView) -> Int {
         // #warning Incomplete implementation, return the number of sections
         return self.sections.count
+    }
+    
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return self.sections.titleForSectionAtIndex(section)
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -75,7 +108,7 @@ class AccountViewController: UITableViewController {
     var password:String?
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell.init(style: .default, reuseIdentifier: "cell")
+        let cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: "cell")
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
         switch identifier {
         case .Authentication:
@@ -104,29 +137,26 @@ class AccountViewController: UITableViewController {
                 cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
                 cell.textLabel?.textColor = .systemRed
             }
-        case .PublicProfile:
-            if indexPath.row == 0 {
-                let textfield = UITextField.init(frame: CGRect.init(x: 15, y: 15, width: self.view.frame.size.width-40, height: 30))
-                textfield.autocapitalizationType = .none
-                textfield.font = .systemFont(ofSize: 24, weight: .bold)
-                textfield.placeholder = "Display Name"
-                textfield.tag = 3
-                if let uid = Auth.auth().currentUser?.uid {
-                    getProfileForUID(uid) { (profile) in
-                        if let name = profile?.username {
-                            textfield.text = name
-                        }
-                    }
-                }
-                textfield.delegate = self
-                cell.addSubview(textfield)
+        case .AccountSellerSummary:
+            if indexPath.row == 4 {
+                cell.textLabel?.text = "See All Sales"
+                cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "Save Changes"
-                cell.textLabel?.textColor = .systemRed
-                cell.textLabel?.font = buttonFont
+                if let tx = self.salesTransactions?[indexPath.row] {
+                    cell.textLabel?.text = "$\(tx.amount)"
+                    cell.detailTextLabel?.text = RootViewController.dfm.string(from: tx.date!).replacingOccurrences(of: "_", with: " at ")
+                }
+            }
+        case .AccountCustomerSummary:
+            if self.customerTransactions == nil {
+                cell.textLabel?.text = "Past purchases will appear here"
+            } else {
+                if let tx = self.customerTransactions?[indexPath.row] {
+                    cell.textLabel?.text = "$\(tx.amount)"
+                    cell.detailTextLabel?.text = RootViewController.dfm.string(from: tx.date!).replacingOccurrences(of: "_", with: " at ")
+                }
             }
         case .Actions:
-            
             cell.textLabel?.text = "Sign Out"
             cell.textLabel?.textColor = .systemRed
             cell.textLabel?.font = buttonFont
@@ -152,11 +182,15 @@ class AccountViewController: UITableViewController {
             } else {
                 signUp()
             }
-        } else if identifier == .PublicProfile {
-            if indexPath.row == tableView.numberOfRows(inSection: indexPath.section)-1 {
-                updatePublicProfile()
+        } else if identifier == .AccountSellerSummary {
+            if indexPath.row == 4 {
+                
+            } else {
+                let transactionViewController = IndividualTransactionViewController.init(self.salesTransactions![indexPath.row])
+                self.present(transactionViewController, animated: true, completion: nil)
             }
-        } else if identifier == .Actions {
+        }
+        else if identifier == .Actions {
             signOut()
         }
         tableView.deselectRow(at: indexPath, animated: true)
@@ -189,7 +223,7 @@ class AccountViewController: UITableViewController {
         }
     }
     
-    func signOut() {
+    @objc func signOut() {
         do {
             try Auth.auth().signOut()
             self.delegate?.authenticationChanged()
@@ -217,7 +251,82 @@ class AccountViewController: UITableViewController {
         }
         
     }
+    
+    func getPastSales() {
+        if seller {
+            Functions.functions().httpsCallable("ListAllCharges").call() { (result, error) in
+                if let error = error as NSError? {
+                    if error.domain == FunctionsErrorDomain {
+                        let message = error.localizedDescription
+                        print("ERROR: \(message)")
+                        return
+                    }
+                }
+                if let data = result?.data as? [String:Any] {
+                    if let list = data["data"] as? [[String:Any]] {
+                        self.salesTransactions = list.map({ (tx) -> Transaction in
+                            return Transaction.init(data: tx)
+                        })
+                        if self.salesTransactions != nil {
+                            var count = self.salesTransactions!.count
+                            if count > 4 {
+                                count = 5
+                            }
+                            self.sections.updateSection(title: .AccountSellerSummary, rows: count)
+                            self.sections.setHeaderTextForSection(.AccountSellerSummary, "Sales")
+                            self.tableView.reloadData()
+//                            if let index = self.sections.indexForIdentifier(.AccountSellerSummary) {
+//                                self.tableView.beginUpdates()
+//                                self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
+//                                self.tableView.endUpdates()
+//                            }
+                        }
+                        return
+                    }
+                    
+                }
+            }
+        }
+    }
 
+    func getCustomerTransactions() {
+        if Auth.auth().currentUser != nil {
+            Functions.functions().httpsCallable("listCustomerCharges").call() { (result, error) in
+                if let error = error as NSError? {
+                    if error.domain == FunctionsErrorDomain {
+                        let message = error.localizedDescription
+                        print("ERROR: \(message)")
+                        return
+                    }
+                }
+                if let data = result?.data as? [String:Any] {
+                    if let list = data["data"] as? [[String:Any]] {
+                        self.customerTransactions = list.map({ (tx) -> Transaction in
+                            return Transaction.init(data: tx)
+                        })
+                        if self.customerTransactions != nil {
+                            if let count = self.customerTransactions?.count {
+                                if count > 0 {
+                                    self.sections.updateSection(title: .AccountCustomerSummary, rows: count)
+                                    self.sections.setHeaderTextForSection(.AccountCustomerSummary, "Purchases")
+                                    self.tableView.reloadData()
+//                                    if let index = self.sections.indexForIdentifier(.AccountCustomerSummary) {
+//                                        self.tableView.beginUpdates()
+//                                        self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
+//                                        self.tableView.endUpdates()
+//                                    }
+                                }
+                                
+                            }
+                            
+                        }
+                        return
+                    }
+                    
+                }
+            }
+        }
+    }
 }
 
 extension AccountViewController: UITextFieldDelegate {

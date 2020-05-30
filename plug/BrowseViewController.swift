@@ -23,20 +23,24 @@ extension BrowseViewController: BrowseDelegate {
 
 class BrowseViewController: UICollectionViewController {
     
+    var sections = SectionController()
+    
     var items = [Item]()
     var itemSize:CGSize
 
-    init(itemSize: CGSize) {
+    init(screenWidth: CGFloat, itemSize: CGSize) {
         let layout = UICollectionViewFlowLayout.init()
         layout.minimumLineSpacing = 0
+//        layout.headerReferenceSize = CGSize(width: screenWidth, height: 35)
         layout.itemSize = itemSize
         layout.scrollDirection = .vertical
         layout.minimumInteritemSpacing = 0
+        
         layout.sectionInset = UIEdgeInsets.zero
         self.itemSize = itemSize
         
         super.init(collectionViewLayout: layout)
-        self.view.backgroundColor = .secondarySystemGroupedBackground
+        self.view.backgroundColor = .systemGroupedBackground
         self.title = "Latest"
         self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "square.grid.2x2"), selectedImage: UIImage.init(systemName: "square.grid.2x2.fill"))
     }
@@ -53,31 +57,61 @@ class BrowseViewController: UICollectionViewController {
 //        }
 //    }
 //
+    
+    var checkBackView:UIView?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        self.collectionView.register(UICollectionReusableView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: "headerView")
         self.collectionView.backgroundColor = .clear
         self.collectionView.alwaysBounceVertical = true
-
+        self.collectionView.keyboardDismissMode = .interactive
         self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
-        self.collectionView.contentInset = UIEdgeInsets.init(top: self.collectionView.contentInset.top+15, left: 15, bottom: self.collectionView.contentInset.bottom, right: 15)
+        let searchParent = UIView.init(frame: CGRect.init(origin: CGPoint.init(x: -15, y: -80), size: CGSize.init(width: self.view.frame.size.width, height: 80)))
+        searchParent.backgroundColor = .clear
+        let searchBar = UISearchBar.init(frame: CGRect.init(origin: CGPoint.init(x: 10, y: 15), size: CGSize.init(width: self.view.frame.size.width-20, height: 50)))
+        searchBar.placeholder = "Supreme, Yeezy, Jordan, Shirt..."
+        searchBar.searchBarStyle = .minimal
+        searchBar.delegate = self
+        searchParent.addSubview(searchBar)
+        self.collectionView.addSubview(searchParent)
+        self.collectionView.contentInset = UIEdgeInsets.init(top: self.collectionView.contentInset.top+80, left: 15, bottom: self.collectionView.contentInset.bottom, right: 15)
         self.getLatest {
         }
     }
+    
+//    override func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
+//        let headerView = collectionView.dequeueReusableSupplementaryView(ofKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: "headerView", for: indexPath)
+//        let title = UILabel.init(frame: CGRect.init(x: 15, y: 0, width: self.view.frame.size.width-30, height: 35))
+//        title.text = self.sections.titleForSectionAtIndex(indexPath.section)?.uppercased()
+//        title.font = subtitleFont
+//        title.textAlignment = .center
+//        headerView.addSubview(title)
+//        headerView.frame.size.height = 35
+//
+//        return headerView
+//    }
 
     override func numberOfSections(in collectionView: UICollectionView) -> Int {
         // #warning Incomplete implementation, return the number of sections
-        return 1
+        return self.sections.count
     }
 
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return self.items.count
+        return self.sections.rowsInSectionAtIndex(section)
     }
 
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         var cell:UICollectionViewCell
         
         cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath)
-        let item = self.items[indexPath.item]
+        let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
+        var item:Item
+        if identifier == .Browse {
+            item = self.items[indexPath.item]
+        } else {
+            item = self.searchResults[indexPath.item]
+        }
         if cell.tag == 0 {
             cell.tag = 1
             let view = UIImageView.init(frame: CGRect.init(origin: CGPoint.zero, size: CGSize.init(width: self.itemSize.width, height: self.itemSize.height-60)))
@@ -115,18 +149,25 @@ class BrowseViewController: UICollectionViewController {
                 }
             }
         }
-        
         return cell
     }
 
     var selectedItemHeart:UIImageView?
+    
+    
     
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let cell = collectionView.cellForItem(at: indexPath)
         self.selectedItemHeart = cell?.subviews.first(where: { (v) -> Bool in
             return v.tag == -5
         }) as? UIImageView
-        let itemViewController = ItemViewController.init(item: &self.items[indexPath.item])
+        var itemViewController:ItemViewController
+        let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
+        if identifier == .Browse {
+            itemViewController = ItemViewController.init(item: &self.items[indexPath.item])
+        } else {
+            itemViewController = ItemViewController.init(item: &self.searchResults[indexPath.item])
+        }
         itemViewController.browseDelegate = self
         itemViewController.hidesBottomBarWhenPushed = true
         self.navigationController?.pushViewController(itemViewController, animated: true)
@@ -140,24 +181,89 @@ class BrowseViewController: UICollectionViewController {
                 complete()
                 return
             }
-            self.collectionView.performBatchUpdates({
-                for (_, change) in snapshot.documentChanges.enumerated() {
-                    if change.type == .added {
-                        let item = Item.init(change.document.documentID)
-                        item.attachData(change.document.data())
-                        self.items.append(item)
-                        self.collectionView.insertItems(at: [IndexPath.init(item: self.items.count-1, section: 0)])
-                    }
-//                    else if change.type == .removed {
-//                        if let index =
-//                        self.items.remove(at: index)
-//                        self.collectionView.insertItems(at: [IndexPath.init(item: self.items.count, section: 0)])
-//                    }
+            for (_, change) in snapshot.documentChanges.enumerated() {
+                if change.type == .added {
+                    let item = Item.init(change.document.documentID)
+                    item.attachData(change.document.data())
+                    self.items.append(item)
                 }
+            }
+            self.collectionView.performBatchUpdates({
+                let (insert, index) = self.sections.updateSection(title: .Browse, rows: self.items.count-1)
+                if insert {
+                    self.collectionView.insertSections(IndexSet.init(integer: index))
+                } else {
+                    self.collectionView.reloadSections(IndexSet.init(integer: index))
+                }
+//                self.collectionView.insertItems(at: [IndexPath.init(item: self.items.count-2, section: index)])
             }) { (done) in
                 complete()
             }
         }
     }
 
+    var searchResults = [Item]()
+    
+    func searchFirestore(_ terms: [String]) {
+        Firestore.firestore().collection("items").whereField("tags", arrayContainsAny: terms).getDocuments { (snapshot, error) in
+            guard let results = snapshot?.documents else {
+                return
+            }
+            if results.isEmpty {
+                print("no no results")
+                if let section = self.sections.removeSection(title: .ForYouResults) {
+                    print("remove at section 0")
+                    self.collectionView.performBatchUpdates({
+                    self.collectionView.deleteSections(IndexSet.init(integer: section))
+                }) { (done) in
+                        
+                    }
+                }
+                return
+            }
+            self.searchResults = results.map({ (qds) -> Item in
+                return Item.init(fromQuery: qds.data(), qds.documentID)
+            })
+            let count = self.searchResults.count
+            let (insert, _) = self.sections.updateSection(title: .ForYouResults, rows: count)
+            self.sections.setHeaderTextForSection(.ForYouResults, "\(count == 0 ? "No" : "\(count)") item\(count == 1 ? "" : "s") found")
+            self.sections.moveSectionToFirst(.ForYouResults)
+            self.collectionView.performBatchUpdates({
+                if insert {
+                    self.collectionView.insertSections(IndexSet.init(integer: 0))
+                } else {
+                    self.collectionView.reloadSections(IndexSet.init(integer: 0))
+                }
+            }) { (done) in
+            }
+            
+        }
+    }
+}
+
+extension BrowseViewController: UISearchBarDelegate {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        if let text = searchBar.text?.lowercased() {
+            let trimmed = text.trimmingCharacters(in: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789").inverted)
+            var filtered = trimmed.components(separatedBy: " ")
+            if filtered.contains("shoe") {
+                filtered.append("shoes")
+            }
+            searchFirestore(filtered)
+        }
+        searchBar.resignFirstResponder()
+    }
+    
+
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchText == "" {
+            if let section = self.sections.removeSection(title: .ForYouResults) {
+                self.collectionView.performBatchUpdates({
+                self.collectionView.deleteSections(IndexSet.init(integer: section))
+            }) { (done) in
+                    searchBar.resignFirstResponder()
+                }
+            }
+        }
+    }
 }

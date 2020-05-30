@@ -23,6 +23,8 @@
 		D46AECD7247D9139006961D8 /* OfferViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D46AECD6247D9139006961D8 /* OfferViewController.swift */; };
 		D49D1467247E2B29004DB514 /* MyStuffViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D49D1466247E2B29004DB514 /* MyStuffViewController.swift */; };
 		D49D1469247E33D8004DB514 /* Favorite.swift in Sources */ = {isa = PBXBuildFile; fileRef = D49D1468247E33D8004DB514 /* Favorite.swift */; };
+		D4C5393B248187A700E2AFAF /* TransactionsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C5393A248187A700E2AFAF /* TransactionsViewController.swift */; };
+		D4C5393D2481AF3000E2AFAF /* PersonalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C5393C2481AF3000E2AFAF /* PersonalViewController.swift */; };
 		D4D2E9A2247ED8D900632907 /* OfferCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4D2E9A0247ED8D900632907 /* OfferCell.swift */; };
 		D4D2E9A3247ED8D900632907 /* OfferCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = D4D2E9A1247ED8D900632907 /* OfferCell.xib */; };
 		D4E7C1842479A3F300E6CF2B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E7C1832479A3F300E6CF2B /* AppDelegate.swift */; };
@@ -52,6 +54,8 @@
 		D46EE29A24806F6D00F83AEA /* plug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = plug.entitlements; sourceTree = "<group>"; };
 		D49D1466247E2B29004DB514 /* MyStuffViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyStuffViewController.swift; sourceTree = "<group>"; };
 		D49D1468247E33D8004DB514 /* Favorite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Favorite.swift; sourceTree = "<group>"; };
+		D4C5393A248187A700E2AFAF /* TransactionsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsViewController.swift; sourceTree = "<group>"; };
+		D4C5393C2481AF3000E2AFAF /* PersonalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalViewController.swift; sourceTree = "<group>"; };
 		D4D2E9A0247ED8D900632907 /* OfferCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfferCell.swift; sourceTree = "<group>"; };
 		D4D2E9A1247ED8D900632907 /* OfferCell.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = OfferCell.xib; sourceTree = "<group>"; };
 		D4E7C1802479A3F300E6CF2B /* plug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = plug.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,11 +116,13 @@
 				D46AECD2247C59D0006961D8 /* BrowseViewController.swift */,
 				D49D1466247E2B29004DB514 /* MyStuffViewController.swift */,
 				D45A0EF92479A70500280226 /* PostViewController.swift */,
-				D46AECC8247B32DC006961D8 /* AccountViewController.swift */,
+				D4C5393C2481AF3000E2AFAF /* PersonalViewController.swift */,
 				D46AECD4247C6A31006961D8 /* ItemViewController.swift */,
 				D46AECD6247D9139006961D8 /* OfferViewController.swift */,
 				D45A0EFD2479A8D600280226 /* Item.swift */,
 				D4671D12247DA1F500851F05 /* Offer.swift */,
+				D46AECC8247B32DC006961D8 /* AccountViewController.swift */,
+				D4C5393A248187A700E2AFAF /* TransactionsViewController.swift */,
 				D4E7C1892479A3F300E6CF2B /* Main.storyboard */,
 				D4E7C18C2479A3F500E6CF2B /* Assets.xcassets */,
 				D4E7C18E2479A3F500E6CF2B /* LaunchScreen.storyboard */,
@@ -263,11 +269,13 @@
 				D4D2E9A2247ED8D900632907 /* OfferCell.swift in Sources */,
 				D46AECD5247C6A31006961D8 /* ItemViewController.swift in Sources */,
 				D45A0EFC2479A73600280226 /* SectionController.swift in Sources */,
+				D4C5393D2481AF3000E2AFAF /* PersonalViewController.swift in Sources */,
 				D4671D13247DA1F500851F05 /* Offer.swift in Sources */,
 				D45A0EFA2479A70500280226 /* PostViewController.swift in Sources */,
 				D46AECD3247C59D0006961D8 /* BrowseViewController.swift in Sources */,
 				D49D1467247E2B29004DB514 /* MyStuffViewController.swift in Sources */,
 				D46AECC9247B32DC006961D8 /* AccountViewController.swift in Sources */,
+				D4C5393B248187A700E2AFAF /* TransactionsViewController.swift in Sources */,
 				D45A0F002479AE2A00280226 /* RootViewController.swift in Sources */,
 				D46AECC6247B18F7006961D8 /* GrowingCell.swift in Sources */,
 				D46AECCD247B7235006961D8 /* Tools.swift in Sources */,

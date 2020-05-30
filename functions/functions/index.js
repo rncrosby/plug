@@ -47,3 +47,42 @@ exports.purchaseItem = functions.https.onCall(async (data, context) => {
         return null
     } 
 });
+
+exports.getSingleCharge = functions.https.onCall(async (data, context) => {
+    try {
+        return await stripe.paymentIntents.retrieve(data.payment)
+    } catch (error) {
+        console.log(error)
+        return error
+    }
+})
+
+exports.listCustomerCharges = functions.https.onCall(async (data, context) => {
+    try {
+        const customer = await db.collection('users').doc(context.auth.uid).get()
+        return await stripe.paymentIntents.list({
+            customer: customer.data()['customer'],
+            limit: 100,
+            created: {
+                gt: 1590775385
+            }
+        })
+    } catch (error) {
+        console.log(error)
+        return error
+    }
+})
+
+exports.ListAllCharges = functions.https.onCall(async (data, context) => {
+    try {
+        const result = await stripe.paymentIntents.list({   limit: 100,
+            created: {
+                gt: 1590775385
+            }
+        })
+        return result
+    } catch (error) {
+        console.log(error)
+        return error
+    }
+})

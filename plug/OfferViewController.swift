@@ -10,8 +10,18 @@ import UIKit
 import Firebase
 import Stripe
 import Contacts
+import SafariServices
 
 extension OfferViewController: OfferDelegate {
+    
+    func offerDeclined() {
+        self.dismiss(animated: true, completion: nil)
+    }
+    
+    func presentTransactionView(_ transaction: Transaction) {
+        let transactionViewController = IndividualTransactionViewController.init(transaction)
+        self.present(transactionViewController, animated: true, completion: nil)
+    }
     
     func showMarkShippedAddTrackingNumber(_ complete: @escaping (String?) -> ()) {
         let alert = UIAlertController.init(title: "Attach Tracking Number", message: nil, preferredStyle: .alert)
@@ -133,7 +143,8 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
                 "item"      : itemID,
                 "customer"  : uid,
                 "seller"    : itemSeller,
-                "parties"   : [uid, itemSeller]
+                "parties"   : [uid, itemSeller],
+                "complete"  : false
             ]) { (error) in
                 if let error = error {
                     print(error.localizedDescription)
@@ -232,17 +243,14 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
             textviewHeight = "Message".height(withConstrainedWidth: self.view.frame.size.width-30, font: UIFont.systemFont(ofSize: 18))+20
             originalBottomChatY = self.view.frame.size.height-bottomBarHeight-(margin*2)-textviewHeight-30
             messageComposeView.frame = CGRect.init(origin: CGPoint.init(x: 0, y: originalBottomChatY), size: CGSize.init(width: self.view.frame.size.width, height: self.view.frame.size.height/2))
-            let blur = UIVisualEffectView.init(effect: UIBlurEffect.init(style: .prominent))
-            blur.frame = messageComposeView.bounds
-            messageComposeView.addSubview(blur)
             messageComposeField.frame = CGRect.init(origin: CGPoint.init(x: 15, y: margin), size: CGSize.init(width: messageComposeView.frame.size.width-margin-margin-30-15, height: textviewHeight))
-            messageComposeField.font = UIFont.systemFont(ofSize: 14)
+            messageComposeField.font = UIFont.systemFont(ofSize: 18)
             messageComposeField.isScrollEnabled = false
             messageComposeField.contentInset = UIEdgeInsets.init(top: 10, left: 10, bottom: 10, right: 10)
             messageComposeField.text = "Message"
             messageComposeField.textColor = .placeholderText
             messageComposeField.backgroundColor = .secondarySystemGroupedBackground
-            messageComposeField.layer.cornerRadius = 10
+            messageComposeField.layer.cornerRadius = messageComposeField.frame.size.height/2
             messageComposeField.delegate = self
             messageComposeField.layer.masksToBounds = true
             
@@ -267,6 +275,7 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
     @objc func sendMessage() {
         self.offer?.sendMessage(self.messageComposeField.text)
         self.messageComposeField.text = ""
+        
     }
 }
 
@@ -275,9 +284,16 @@ extension OfferViewController: UITableViewDataSource,UITableViewDelegate,UITextV
     func textViewDidBeginEditing(_ textView: UITextView) {
         if textView.text == "Message" {
             textView.text = ""
-            textView.textColor = .label
         }
+        textView.textColor = .label
     }
+    
+//    func textViewDidEndEditing(_ textView: UITextView) {
+//        if textView.text.isEmpty {
+//            textView.text = "Message"
+//            textView.textColor = .placeholderText
+//        }
+//    }
     
     func textViewDidChange(_ textView: UITextView) {
         if !(textView.text.isEmpty) {
@@ -297,6 +313,16 @@ extension OfferViewController: UITableViewDataSource,UITableViewDelegate,UITextV
         } else {
             self.messageComposeField.text = "Message"
             self.messageComposeField.textColor = .placeholderText
+            let height = textView.text.height(withConstrainedWidth: textView.frame.size.width-(2*textView.contentInset.left)-5, font: textView.font!)+20
+            if height != textviewHeight {
+                let difference = height-textviewHeight
+                originalBottomChatY = originalBottomChatY-difference
+                textviewHeight = height
+                UIView.animate(withDuration: 0.15) {
+                    textView.frame.size.height = self.textviewHeight
+                    self.messageComposeView.frame.origin.y-=difference
+                }
+            }
         }
     }
     
@@ -330,12 +356,12 @@ extension OfferViewController: UITableViewDataSource,UITableViewDelegate,UITextV
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         if let message = self.offer?.messages?[indexPath.row] {
-            if indexPath.row + 1 < self.offer!.messages!.count {
-                if self.offer!.messages![indexPath.row+1].amSender {
-                    return message.getFrame(width: &self.messageWidth).height+2.5
-                }
-            }
-            return message.getFrame(width: &self.messageWidth).height+10
+//            if indexPath.row+1 < self.offer!.messages!.count {
+//                if self.offer!.messages![indexPath.row+1].amSender {
+//                    return message.getFrame(width: &self.messageWidth).height+2.5
+//                }
+//            }
+            return message.getFrame(width: &self.messageWidth).height+5
         }
         return UITableView.automaticDimension
     }

@@ -26,6 +26,7 @@ class Offer: NSObject {
     var listener:ListenerRegistration?
     var messageListener:ListenerRegistration?
     
+    var modified:Timestamp?
     var date:Date?
     var item:String?
     var customer:String?
@@ -80,6 +81,7 @@ class Offer: NSObject {
     
     init(fromQuery: QueryDocumentSnapshot) {
         self.reference = fromQuery.reference
+        self.modified = (fromQuery.data()["modified"] as? Timestamp)
         self.date = (fromQuery.data()["date"] as? Timestamp)?.dateValue()
         self.item = fromQuery.data()["item"] as? String
         self.customer = fromQuery.data()["customer"] as? String
@@ -105,6 +107,7 @@ class Offer: NSObject {
                     return
                 }
                 if let data = snapshot?.data() {
+                    self.modified = (data["modified"] as? Timestamp)
                     self.date = (data["date"] as? Timestamp)?.dateValue()
                     self.item = data["item"] as? String
                     self.customer = data["customer"] as? String
@@ -130,7 +133,8 @@ class Offer: NSObject {
         self.reference.updateData([
             "amount"    : amount,
             "local"     : local,
-            "cash"      : cash
+            "cash"      : cash,
+            "modified"  : Timestamp.init(date: Date())
         ]) { (error) in
             if let error = error {
                 print(error.localizedDescription)
@@ -141,7 +145,10 @@ class Offer: NSObject {
     
     func acceptOffer() {
         let batch = Firestore.firestore().batch()
-        batch.updateData(["accepted" : true], forDocument: self.reference)
+        batch.updateData([
+            "accepted" : true,
+            "modified"  : Timestamp.init(date: Date())
+        ], forDocument: self.reference)
         batch.updateData(["sold": true], forDocument: Firestore.firestore().collection("items").document(self.item!))
         batch.commit { (error) in
             if let error = error {
@@ -167,7 +174,8 @@ class Offer: NSObject {
         self.reference.updateData([
             "amount"    : FieldValue.delete(),
             "local"     : FieldValue.delete(),
-            "cash"      : FieldValue.delete()
+            "cash"      : FieldValue.delete(),
+            "modified"  : Timestamp.init(date: Date())
         ]) { (error) in
             if let error = error {
                 print(error.localizedDescription)
@@ -186,7 +194,9 @@ class Offer: NSObject {
     }
     
     func markReceived() {
-        self.reference.updateData(["complete": true], completion: nil)
+        self.reference.updateData([
+            "complete": true,
+            "modified"  : Timestamp.init(date: Date())], completion: nil)
     }
     
     func retrievePaymentInformation(_ complete: @escaping (Transaction?) -> ()) {
@@ -290,8 +300,9 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
     }
     
     func updateSummaryView() {
-        var height = CGFloat(0)
+        var height = CGFloat(30)
         self.summarySections?.sections.removeAll()
+        self.summarySections?.updateSection(title: .OfferLastUpdated, rows: 1)
         if self.amount == nil {
             if let uid = Auth.auth().currentUser?.uid {
                 if uid == self.customer {
@@ -578,6 +589,9 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
                 cell.textLabel?.text = "PACKAGE SHIPPED"
             } else if identifier! == .OfferComplete {
                 cell.textLabel?.text = "THIS SALE IS COMPLETE"
+            } else if identifier! == .OfferLastUpdated {
+                
+                cell.textLabel?.text = "AS OF \(RootViewController.dfm.string(from: self.modified!.dateValue()).replacingOccurrences(of: "_", with: " at ").uppercased())"
             }
             cell.selectionStyle = .none
         }
@@ -594,6 +608,7 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
         self.delegate?.showMarkShippedAddTrackingNumber({ (trackingNumber) in
             var data = [String:Any]()
             data["shipped"] = true
+            data["modified"] = Timestamp.init(date: Date())
             if let trackingNumber = trackingNumber {
                 data["tracking_number"] = trackingNumber
             }
@@ -648,7 +663,7 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
             return 70
         } else if identifier == .OfferPending || identifier == .OfferNotSubmitted {
             return 80
-        } else if identifier == .OfferCashCompletion || identifier == .OfferCardCompletion || identifier == .OfferPaid || identifier == .OfferShipped || identifier == .OfferComplete {
+        } else if identifier == .OfferCashCompletion || identifier == .OfferCardCompletion || identifier == .OfferPaid || identifier == .OfferShipped || identifier == .OfferComplete || identifier == .OfferLastUpdated {
             return 30
         } else if identifier == .OfferSellerMarkComplete {
             return 90

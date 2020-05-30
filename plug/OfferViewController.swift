@@ -144,7 +144,8 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
                 "customer"  : uid,
                 "seller"    : itemSeller,
                 "parties"   : [uid, itemSeller],
-                "complete"  : false
+                "complete"  : false,
+                "modified"  : Timestamp.init(date: Date())
             ]) { (error) in
                 if let error = error {
                     print(error.localizedDescription)

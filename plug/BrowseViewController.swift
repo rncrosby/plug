@@ -66,7 +66,7 @@ class BrowseViewController: UICollectionViewController {
         self.collectionView.backgroundColor = .clear
         self.collectionView.alwaysBounceVertical = true
         self.collectionView.keyboardDismissMode = .interactive
-        self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
+        self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "error")
         let searchParent = UIView.init(frame: CGRect.init(origin: CGPoint.init(x: -15, y: -80), size: CGSize.init(width: self.view.frame.size.width, height: 80)))
         searchParent.backgroundColor = .clear
         let searchBar = UISearchBar.init(frame: CGRect.init(origin: CGPoint.init(x: 10, y: 15), size: CGSize.init(width: self.view.frame.size.width-20, height: 50)))
@@ -102,9 +102,7 @@ class BrowseViewController: UICollectionViewController {
     }
 
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        var cell:UICollectionViewCell
         
-        cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath)
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
         var item:Item
         if identifier == .Browse {
@@ -112,6 +110,7 @@ class BrowseViewController: UICollectionViewController {
         } else {
             item = self.searchResults[indexPath.item]
         }
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: item.id!, for: indexPath)
         if cell.tag == 0 {
             cell.tag = 1
             let view = UIImageView.init(frame: CGRect.init(origin: CGPoint.zero, size: CGSize.init(width: self.itemSize.width, height: self.itemSize.height-60)))
@@ -186,10 +185,11 @@ class BrowseViewController: UICollectionViewController {
                     let item = Item.init(change.document.documentID)
                     item.attachData(change.document.data())
                     self.items.append(item)
+                    self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: change.document.documentID)
                 }
             }
             self.collectionView.performBatchUpdates({
-                let (insert, index) = self.sections.updateSection(title: .Browse, rows: self.items.count-1)
+                let (insert, index) = self.sections.updateSection(title: .Browse, rows: self.items.count)
                 if insert {
                     self.collectionView.insertSections(IndexSet.init(integer: index))
                 } else {
@@ -222,6 +222,7 @@ class BrowseViewController: UICollectionViewController {
                 return
             }
             self.searchResults = results.map({ (qds) -> Item in
+                self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: qds.documentID)
                 return Item.init(fromQuery: qds.data(), qds.documentID)
             })
             let count = self.searchResults.count

@@ -1,11 +1,12 @@
 const functions = require('firebase-functions');
 let FieldValue = require('firebase-admin').firestore.FieldValue;
+let Timestamp = require('firebase-admin').firestore.Timestamp;
 var admin = require('firebase-admin');
 var stripe = require('stripe')('sk_test_YDfxhI8fNY9UAPbKX1wtITCQ', {
     apiVersion: '2020-03-02',
 });
 
-var app = admin.initializeApp();
+admin.initializeApp();
 let db = admin.firestore();
 
 exports.createStripeCustomer = functions.auth.user().onCreate(async (user) => {
@@ -36,6 +37,7 @@ exports.purchaseItem = functions.https.onCall(async (data, context) => {
         })
         var updatedOffer = {}
         updatedOffer['payment'] = intent.id
+        updatedOffer['modified'] = Timestamp.now()
         if ('shipping_name' in data) {
             updatedOffer['shipping_name'] = data.shipping_name
             updatedOffer['shipping_address'] = data.shipping_address 

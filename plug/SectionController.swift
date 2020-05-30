@@ -29,6 +29,7 @@ class SectionController {
             case Authentication = "auth"
             case PublicProfile = "public profile"
             
+            case OfferLastUpdated = "last updated"
             case OfferAmount = "offer amount"
             case OfferLocal = "offer local"
             case OfferCash = "offer cash"

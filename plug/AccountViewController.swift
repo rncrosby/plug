@@ -29,9 +29,19 @@ class AccountViewController: UITableViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
+    var waitingForVerificationCode = true
     
     override func viewDidLoad() {
-        organizeTable()
+        if Auth.auth().currentUser == nil {
+            self.sections.updateSection(title: .AuthPhone, rows: 1)
+            self.sections.setHeaderTextForSection(.AuthPhone, "Phone number")
+            self.sections.updateSection(title: .AuthContinue, rows: 1)
+        } else {
+            self.sections.updateSection(title: .AccountProfile, rows: 2)
+            self.sections.setHeaderTextForSection(.AccountProfile, "Profile details")
+            self.getCustomerTransactions()
+        }
+        
         super.viewDidLoad()
         
         
@@ -45,35 +55,44 @@ class AccountViewController: UITableViewController {
     }
     
     @objc func refreshTable() {
-        self.tableView.refreshControl?.endRefreshing()
-        if seller {
-            self.getPastSales()
-        } else {
-            self.getCustomerTransactions()
-        }
-    }
-    
-    
-    
-    func organizeTable() {
-        self.sections.sections.removeAll()
-        if Auth.auth().currentUser == nil {
-            self.sections.updateSection(title: .Authentication, rows: 4)
-            self.navigationItem.leftBarButtonItem = nil
-        } else {
-            self.navigationItem.leftBarButtonItem = UIBarButtonItem.init(title: "Sign Out", style: .plain, target: self, action: #selector(signOut))
-            if seller {
-                self.getPastSales()
-            } else {
+        if let uid = Auth.auth().currentUser?.uid {
+            Firestore.firestore().collection("users").document(uid).getDocument { (snapshot, error) in
+                guard let data = snapshot?.data() else {
+                    return
+                }
+                if let tseller = data["seller"] as? Bool {
+                    if tseller {
+                        UserDefaults.standard.set(true, forKey: "seller")
+                        self.seller = true
+                        self.delegate?.showSeller()
+                        self.showSellerStuff()
+                    }
+                } else {
+                    UserDefaults.standard.set(false, forKey: "seller")
+                    self.delegate?.hideSeller()
+                }
                 self.getCustomerTransactions()
             }
         }
-        self.tableView.reloadData()
+        self.tableView.refreshControl?.endRefreshing()
     }
     
-    func insertSellerSection() {
-        seller = true
-        self.getPastSales()
+    func showSellerStuff() {
+        let (insert, index) = self.sections.updateSection(title: .AuthNotifyEveryone, rows: 1)
+        self.sections.setHeaderTextForSection(.AuthNotifyEveryone, "Seller Tools")
+        self.tableView.beginUpdates()
+        if insert {
+            self.tableView.insertSections(IndexSet.init(integer: index), with: .fade)
+        } else {
+            self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
+        }
+        
+        self.tableView.endUpdates()
+    }
+    
+    func organizeTable() {
+        
+        self.tableView.reloadData()
     }
 
     // MARK: - Table view data source
@@ -94,58 +113,59 @@ class AccountViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
-        if identifier == .Authentication && indexPath.row < 2 {
+        if identifier == .AuthPhone || identifier == .AuthCode {
             return 60
         }
-        if identifier == .PublicProfile && indexPath.row == 0 {
-            return 60
-        }
+        
         return UITableView.automaticDimension
     }
     
-    var username:String?
-    var email:String?
-    var password:String?
+    var activeTextField:UITextField?
+    var phone:String?
+    var code:String?
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: "cell")
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
         switch identifier {
-        case .Authentication:
-            if indexPath.row < 2 {
-                let textfield = UITextField.init(frame: CGRect.init(x: 15, y: 15, width: self.view.frame.size.width-40, height: 30))
-                textfield.autocapitalizationType = .none
-                textfield.font = .systemFont(ofSize: 24, weight: .bold)
-                if indexPath.row == 0 {
-                    textfield.text = email
-                    textfield.placeholder = "email address"
-                    textfield.keyboardType = .emailAddress
-                } else {
-                    textfield.text = password
-                    textfield.placeholder = "password"
-                    textfield.isSecureTextEntry = true
-                }
-                textfield.delegate = self
-                textfield.tag = indexPath.row
-                cell.addSubview(textfield)
-            } else if indexPath.row == 2 {
-                cell.textLabel?.text = "SIGN IN"
-                cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-                cell.textLabel?.textColor = .systemRed
-            } else {
-                cell.textLabel?.text = "SIGN UP"
-                cell.textLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-                cell.textLabel?.textColor = .systemRed
-            }
+        case .AuthPhone:
+            let textfield = UITextField.init(frame: CGRect.init(x: 15, y: 10, width: self.view.frame.size.width-70, height: 40))
+            textfield.autocapitalizationType = .none
+            textfield.font = buttonFont
+            textfield.text = phone == nil ? formattedNumber(number: "1") : phone
+            textfield.keyboardType = .phonePad
+            let dismiss = UIButton.init(frame: CGRect.init(x: 0, y: 10, width: 30, height: 30))
+            dismiss.setImage(UIImage.init(systemName: "keyboard.chevron.compact.down"), for: .normal)
+            dismiss.tintColor = .secondaryLabel
+            dismiss.addTarget(self, action: #selector(dismissTextField), for: .touchUpInside)
+            textfield.rightView = dismiss
+            textfield.rightViewMode = .whileEditing
+            textfield.delegate = self
+            textfield.tag = indexPath.section
+            cell.addSubview(textfield)
+        case .AuthCode:
+            let textfield = UITextField.init(frame: CGRect.init(x: 15, y: 10, width: self.view.frame.size.width-70, height: 40))
+            textfield.autocapitalizationType = .none
+            textfield.font = buttonFont
+            textfield.text = code
+            textfield.addTarget(self, action: #selector(codeFieldDidChange(sender:)), for: .editingChanged)
+            textfield.keyboardType = .phonePad
+            let dismiss = UIButton.init(frame: CGRect.init(x: 0, y: 10, width: 30, height: 30))
+            dismiss.setImage(UIImage.init(systemName: "keyboard.chevron.compact.down"), for: .normal)
+            dismiss.tintColor = .secondaryLabel
+            dismiss.addTarget(self, action: #selector(dismissTextField), for: .touchUpInside)
+            textfield.rightView = dismiss
+            textfield.rightViewMode = .whileEditing
+            textfield.delegate = self
+            textfield.tag = indexPath.section
+            cell.addSubview(textfield)
+        case .AuthContinue:
+            cell.textLabel?.text = "Continue"
+            cell.textLabel?.font = buttonFont
         case .AccountSellerSummary:
-            if indexPath.row == 4 {
-                cell.textLabel?.text = "See All Sales"
-                cell.accessoryType = .disclosureIndicator
-            } else {
-                if let tx = self.salesTransactions?[indexPath.row] {
-                    cell.textLabel?.text = "$\(tx.amount)"
-                    cell.detailTextLabel?.text = RootViewController.dfm.string(from: tx.date!).replacingOccurrences(of: "_", with: " at ")
-                }
+            if let tx = self.salesTransactions?[indexPath.row] {
+                cell.textLabel?.text = "$\(tx.amount)"
+                cell.detailTextLabel?.text = RootViewController.dfm.string(from: tx.date!).replacingOccurrences(of: "_", with: " at ")
             }
         case .AccountCustomerSummary:
             if self.customerTransactions == nil {
@@ -156,10 +176,21 @@ class AccountViewController: UITableViewController {
                     cell.detailTextLabel?.text = RootViewController.dfm.string(from: tx.date!).replacingOccurrences(of: "_", with: " at ")
                 }
             }
-        case .Actions:
-            cell.textLabel?.text = "Sign Out"
+        case .AccountProfile:
+            cell.textLabel?.font = buttonFont
+            if indexPath.row == 0 {
+                if let uid = Auth.auth().currentUser?.uid {
+                    cell.textLabel?.text = uid
+                }
+            } else {
+                cell.textLabel?.text = "Sign Out"
+                cell.textLabel?.textColor = .systemRed
+            }
+        case .AuthNotifyEveryone:
+            cell.textLabel?.text = "Send Notification To All"
             cell.textLabel?.textColor = .systemRed
             cell.textLabel?.font = buttonFont
+            cell.imageView?.image = UIImage.init(systemName: "paperplane.fill")
         default:
             break
         }
@@ -168,92 +199,104 @@ class AccountViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
-        if identifier == .Authentication {
-            if indexPath.row < 2 {
-                if let subviews = tableView.cellForRow(at: indexPath)?.subviews {
-                    for view in subviews {
-                        if let tf = view as? UITextField {
-                            tf.becomeFirstResponder()
-                        }
-                    }
-                }
-            } else if indexPath.row == 2 {
-                signIn()
+        if identifier == .AuthContinue {
+            if verificationID == nil {
+                self.sendVerificationCode()
             } else {
-                signUp()
-            }
-        } else if identifier == .AccountSellerSummary {
-            if indexPath.row == 4 {
-                
-            } else {
-                let transactionViewController = IndividualTransactionViewController.init(self.salesTransactions![indexPath.row])
-                self.present(transactionViewController, animated: true, completion: nil)
+                authentifyUser()
             }
         }
-        else if identifier == .Actions {
-            signOut()
+        else if identifier == .AccountSellerSummary {
+            let transactionViewController = IndividualTransactionViewController.init(self.salesTransactions![indexPath.row])
+            self.present(transactionViewController, animated: true, completion: nil)
+        }
+        else if identifier == .AccountProfile {
+            if indexPath.row == self.tableView.numberOfRows(inSection: indexPath.section)-1 {
+                signOut()
+            }
+        } else if identifier == .AuthNotifyEveryone {
+            let notifyEveryone = NotifyEveryoneViewController.init(style: .insetGrouped)
+            self.present(notifyEveryone, animated: true, completion: nil)
         }
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
-    func signIn() {
-        print("email \(self.email ?? "error"), password \(self.password ?? "error")")
-        if  let email = self.email,
-            let password = self.password {
-            Auth.auth().signIn(withEmail: email, password: password) { (result, error) in
+    func authentifyUser() {
+        if let vID = verificationID, let vCode = self.code {
+            let credential = PhoneAuthProvider.provider().credential(
+            withVerificationID: vID,
+            verificationCode: vCode)
+            Auth.auth().signIn(with: credential) { (result, error) in
                 if let error = error {
-                    self.delegate?.showAlert(title: nil, message: error.localizedDescription)
+                    print(error.localizedDescription)
                     return
                 }
                 self.delegate?.authenticationChanged()
+                self.sections.removeSection(title: .AuthPhone)
+                self.sections.removeSection(title: .AuthCode)
+                self.sections.removeSection(title: .AuthContinue)
+                self.sections.updateSection(title: .AccountProfile, rows: 2)
+                self.sections.setHeaderTextForSection(.AccountProfile, "Profile details")
+                self.tableView.beginUpdates()
+                self.tableView.deleteSections(IndexSet.init(integersIn: 0...2), with: .fade)
+                self.tableView.insertSections(IndexSet.init(integer: 0), with: .fade)
+                self.tableView.endUpdates()
+                self.getCustomerTransactions()
+                self.getPastSales()
+                
             }
         }
+        
     }
     
-    func signUp() {
-        if  let email = self.email,
-            let password = self.password {
-            Auth.auth().createUser(withEmail: email, password: password) { (result, error) in
-                if let error = error {
-                    self.delegate?.showAlert(title: nil, message: error.localizedDescription)
-                    return
+    var verificationID:String?
+    
+    func sendVerificationCode() {
+        if let phoneNumber = phone {
+            PhoneAuthProvider.provider().verifyPhoneNumber(phoneNumber, uiDelegate: nil) { (verificationID, error) in
+              if let error = error {
+                print(error.localizedDescription)
+                return
+              }
+                UserDefaults.standard.set(verificationID, forKey: "verificationCode")
+                self.verificationID = verificationID
+                let (insert, _) = self.sections.updateSection(title: .AuthCode, rows: 1)
+                self.sections.setHeaderTextForSection(.AuthCode, "Verification code")
+                self.sections.orderSections([.AuthPhone,.AuthCode,.AuthContinue])
+                if insert {
+                    self.tableView.beginUpdates()
+                    self.tableView.insertSections(IndexSet.init(integer: 1), with: .fade)
+                    self.tableView.endUpdates()
+                } else {
+                     self.tableView.reloadData()
                 }
-                self.delegate?.authenticationChanged()
             }
         }
+        
     }
     
     @objc func signOut() {
         do {
             try Auth.auth().signOut()
             self.delegate?.authenticationChanged()
+            self.sections.sections.removeAll()
+            self.sections.updateSection(title: .AuthPhone, rows: 1)
+            self.sections.setHeaderTextForSection(.AuthPhone, "Phone number")
+            self.sections.updateSection(title: .AuthContinue, rows: 1)
+            
+            self.tableView.beginUpdates()
+            self.tableView.deleteSections(IndexSet.init(integersIn: 0...self.tableView.numberOfSections-1), with: .fade)
+            self.tableView.insertSections(IndexSet.init(integersIn: 0...1), with: .fade)
+            self.tableView.endUpdates()
         } catch {
             print(error.localizedDescription)
         }
     }
     
-    func updatePublicProfile() {
-        if let uid = Auth.auth().currentUser?.uid,
-            let username = self.username {
-            let loading = UIAlertController.init(title: nil, message: "Updating...", preferredStyle: .alert)
-            self.present(loading, animated: true) {
-                Firestore.firestore().collection("users").document(uid).setData(["username":username], merge: true, completion: { (error) in
-                    if let error = error {
-                        loading.dismiss(animated: true) {
-                            self.delegate?.showAlert(title: "Error", message: error.localizedDescription)
-                        }
-                        return
-                    }
-                    loading.dismiss(animated: true, completion: nil)
-                    return
-                })
-            }
-        }
-        
-    }
+
     
     func getPastSales() {
-        if seller {
+        if UserDefaults.standard.bool(forKey: "seller") == true {
             Functions.functions().httpsCallable("ListAllCharges").call() { (result, error) in
                 if let error = error as NSError? {
                     if error.domain == FunctionsErrorDomain {
@@ -269,12 +312,15 @@ class AccountViewController: UITableViewController {
                         })
                         if self.salesTransactions != nil {
                             var count = self.salesTransactions!.count
-                            if count > 4 {
-                                count = 5
+                            let (insert, index) = self.sections.updateSection(title: .AccountSellerSummary, rows: count)
+                            self.sections.setHeaderTextForSection(.AccountSellerSummary, "Recent Card Sales")
+                            self.tableView.beginUpdates()
+                            if insert {
+                                self.tableView.insertSections(IndexSet.init(integer: index), with: .fade)
+                            } else {
+                                self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
                             }
-                            self.sections.updateSection(title: .AccountSellerSummary, rows: count)
-                            self.sections.setHeaderTextForSection(.AccountSellerSummary, "Sales")
-                            self.tableView.reloadData()
+                            self.tableView.endUpdates()
 //                            if let index = self.sections.indexForIdentifier(.AccountSellerSummary) {
 //                                self.tableView.beginUpdates()
 //                                self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
@@ -307,14 +353,15 @@ class AccountViewController: UITableViewController {
                         if self.customerTransactions != nil {
                             if let count = self.customerTransactions?.count {
                                 if count > 0 {
-                                    self.sections.updateSection(title: .AccountCustomerSummary, rows: count)
-                                    self.sections.setHeaderTextForSection(.AccountCustomerSummary, "Purchases")
-                                    self.tableView.reloadData()
-//                                    if let index = self.sections.indexForIdentifier(.AccountCustomerSummary) {
-//                                        self.tableView.beginUpdates()
-//                                        self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
-//                                        self.tableView.endUpdates()
-//                                    }
+                                    let (insert, index) = self.sections.updateSection(title: .AccountCustomerSummary, rows: count)
+                                    self.sections.setHeaderTextForSection(.AccountCustomerSummary, "Card Purchases")
+                                    self.tableView.beginUpdates()
+                                    if insert {
+                                        self.tableView.insertSections(IndexSet.init(integer: index), with: .fade)
+                                    } else {
+                                        self.tableView.reloadSections(IndexSet.init(integer: index), with: .fade)
+                                    }
+                                    self.tableView.endUpdates()
                                 }
                                 
                             }
@@ -331,46 +378,96 @@ class AccountViewController: UITableViewController {
 
 extension AccountViewController: UITextFieldDelegate {
     
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        activeTextField = textField
+    }
+    
+    @objc func dismissTextField() {
+        activeTextField?.resignFirstResponder()
+    }
+    
+    func formattedNumber(number: String) -> String {
+        let cleanPhoneNumber = number.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        let mask = "+X XXX XXX-XXXX"
+
+        var result = ""
+        var index = cleanPhoneNumber.startIndex
+        for ch in mask where index < cleanPhoneNumber.endIndex {
+            if ch == "X" {
+                result.append(cleanPhoneNumber[index])
+                index = cleanPhoneNumber.index(after: index)
+            } else {
+                result.append(ch)
+            }
+        }
+        return result
+    }
+    
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        if let current = textField.text {
-            let text = current + string
-            switch textField.tag {
-            case 0:
-                self.email = text
-            case 1:
-                self.password = text
-            case 3:
-                self.username = text
-            default:
-                break
+        if textField.tag == 0 {
+            guard let text = textField.text else { return false }
+            let newString = (text as NSString).replacingCharacters(in: range, with: string)
+            textField.text = formattedNumber(number: newString)
+            phone = textField.text!
+            return false
+        } else {
+            if let text = textField.text {
+                if text.count == 6 {
+                    return false
+                }
             }
         }
         return true
     }
     
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        if let text = textField.text {
-            switch textField.tag {
-            case 0:
-                self.email = text
-                if self.password?.isEmpty ?? true {
-                    if let next = self.tableView.cellForRow(at: IndexPath.init(row: 1, section: 0)) {
-                        for view in next.subviews {
-                            if let tf = view as? UITextField {
-                                tf.becomeFirstResponder()
-                            }
-                        }
-                    }
-                }
-            case 1:
-                self.password = text
-            case 3:
-                self.username = text
-            default:
-                break
+    @objc func codeFieldDidChange(sender: UITextField) {
+        if let text = sender.text {
+            if text.count == 6 {
+                self.code = text
             }
         }
-        textField.resignFirstResponder()
-        return true
     }
+    
+//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+//        if let current = textField.text {
+//            let text = current + string
+//            switch textField.tag {
+//            case 0:
+//                self.email = text
+//            case 1:
+//                self.password = text
+//            case 3:
+//                self.username = text
+//            default:
+//                break
+//            }
+//        }
+//        return true
+//    }
+    
+//    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+//        if let text = textField.text {
+//            switch textField.tag {
+//            case 0:
+//                self.email = text
+//                if self.password?.isEmpty ?? true {
+//                    if let next = self.tableView.cellForRow(at: IndexPath.init(row: 1, section: 0)) {
+//                        for view in next.subviews {
+//                            if let tf = view as? UITextField {
+//                                tf.becomeFirstResponder()
+//                            }
+//                        }
+//                    }
+//                }
+//            case 1:
+//                self.password = text
+//            case 3:
+//                self.username = text
+//            default:
+//                break
+//            }
+//        }
+//        textField.resignFirstResponder()
+//        return true
+//    }
 }

@@ -8,11 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		2C2A1994E99A553EC8EC62A1 /* Pods_plug.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B81A51F40760BB193161C7A /* Pods_plug.framework */; };
+		D41DACDD2485B297003912B8 /* NotifyEveryoneViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41DACDC2485B297003912B8 /* NotifyEveryoneViewController.swift */; };
+		D41DACDF2485BADD003912B8 /* BrandViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41DACDE2485BADD003912B8 /* BrandViewController.swift */; };
 		D45A0EFA2479A70500280226 /* PostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45A0EF92479A70500280226 /* PostViewController.swift */; };
 		D45A0EFC2479A73600280226 /* SectionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45A0EFB2479A73600280226 /* SectionController.swift */; };
 		D45A0EFE2479A8D600280226 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45A0EFD2479A8D600280226 /* Item.swift */; };
 		D45A0F002479AE2A00280226 /* RootViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45A0EFF2479AE2A00280226 /* RootViewController.swift */; };
 		D4671D13247DA1F500851F05 /* Offer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4671D12247DA1F500851F05 /* Offer.swift */; };
+		D468A17A2482E23A005C3B1B /* NewTagViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D468A1792482E23A005C3B1B /* NewTagViewController.swift */; };
+		D468A17C2482F0B1005C3B1B /* ViewTagViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D468A17B2482F0B1005C3B1B /* ViewTagViewController.swift */; };
 		D46AECC6247B18F7006961D8 /* GrowingCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D46AECC4247B18F7006961D8 /* GrowingCell.swift */; };
 		D46AECC7247B18F7006961D8 /* GrowingCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = D46AECC5247B18F7006961D8 /* GrowingCell.xib */; };
 		D46AECC9247B32DC006961D8 /* AccountViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D46AECC8247B32DC006961D8 /* AccountViewController.swift */; };
@@ -38,11 +42,15 @@
 		3B81A51F40760BB193161C7A /* Pods_plug.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_plug.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C95089372D4874CF7B18AC9 /* Pods-plug.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-plug.release.xcconfig"; path = "Target Support Files/Pods-plug/Pods-plug.release.xcconfig"; sourceTree = "<group>"; };
 		61B3125928DE10FAAE66D200 /* Pods-plug.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-plug.debug.xcconfig"; path = "Target Support Files/Pods-plug/Pods-plug.debug.xcconfig"; sourceTree = "<group>"; };
+		D41DACDC2485B297003912B8 /* NotifyEveryoneViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotifyEveryoneViewController.swift; sourceTree = "<group>"; };
+		D41DACDE2485BADD003912B8 /* BrandViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandViewController.swift; sourceTree = "<group>"; };
 		D45A0EF92479A70500280226 /* PostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostViewController.swift; sourceTree = "<group>"; };
 		D45A0EFB2479A73600280226 /* SectionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionController.swift; sourceTree = "<group>"; };
 		D45A0EFD2479A8D600280226 /* Item.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		D45A0EFF2479AE2A00280226 /* RootViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewController.swift; sourceTree = "<group>"; };
 		D4671D12247DA1F500851F05 /* Offer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Offer.swift; sourceTree = "<group>"; };
+		D468A1792482E23A005C3B1B /* NewTagViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagViewController.swift; sourceTree = "<group>"; };
+		D468A17B2482F0B1005C3B1B /* ViewTagViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewTagViewController.swift; sourceTree = "<group>"; };
 		D46AECC4247B18F7006961D8 /* GrowingCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GrowingCell.swift; sourceTree = "<group>"; };
 		D46AECC5247B18F7006961D8 /* GrowingCell.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = GrowingCell.xib; sourceTree = "<group>"; };
 		D46AECC8247B32DC006961D8 /* AccountViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountViewController.swift; sourceTree = "<group>"; };
@@ -119,10 +127,14 @@
 				D4C5393C2481AF3000E2AFAF /* PersonalViewController.swift */,
 				D46AECD4247C6A31006961D8 /* ItemViewController.swift */,
 				D46AECD6247D9139006961D8 /* OfferViewController.swift */,
+				D468A1792482E23A005C3B1B /* NewTagViewController.swift */,
+				D468A17B2482F0B1005C3B1B /* ViewTagViewController.swift */,
 				D45A0EFD2479A8D600280226 /* Item.swift */,
 				D4671D12247DA1F500851F05 /* Offer.swift */,
 				D46AECC8247B32DC006961D8 /* AccountViewController.swift */,
 				D4C5393A248187A700E2AFAF /* TransactionsViewController.swift */,
+				D41DACDC2485B297003912B8 /* NotifyEveryoneViewController.swift */,
+				D41DACDE2485BADD003912B8 /* BrandViewController.swift */,
 				D4E7C1892479A3F300E6CF2B /* Main.storyboard */,
 				D4E7C18C2479A3F500E6CF2B /* Assets.xcassets */,
 				D4E7C18E2479A3F500E6CF2B /* LaunchScreen.storyboard */,
@@ -270,12 +282,16 @@
 				D46AECD5247C6A31006961D8 /* ItemViewController.swift in Sources */,
 				D45A0EFC2479A73600280226 /* SectionController.swift in Sources */,
 				D4C5393D2481AF3000E2AFAF /* PersonalViewController.swift in Sources */,
+				D41DACDD2485B297003912B8 /* NotifyEveryoneViewController.swift in Sources */,
 				D4671D13247DA1F500851F05 /* Offer.swift in Sources */,
 				D45A0EFA2479A70500280226 /* PostViewController.swift in Sources */,
+				D41DACDF2485BADD003912B8 /* BrandViewController.swift in Sources */,
 				D46AECD3247C59D0006961D8 /* BrowseViewController.swift in Sources */,
 				D49D1467247E2B29004DB514 /* MyStuffViewController.swift in Sources */,
+				D468A17A2482E23A005C3B1B /* NewTagViewController.swift in Sources */,
 				D46AECC9247B32DC006961D8 /* AccountViewController.swift in Sources */,
 				D4C5393B248187A700E2AFAF /* TransactionsViewController.swift in Sources */,
+				D468A17C2482F0B1005C3B1B /* ViewTagViewController.swift in Sources */,
 				D45A0F002479AE2A00280226 /* RootViewController.swift in Sources */,
 				D46AECC6247B18F7006961D8 /* GrowingCell.swift in Sources */,
 				D46AECCD247B7235006961D8 /* Tools.swift in Sources */,
@@ -426,7 +442,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 61B3125928DE10FAAE66D200 /* Pods-plug.debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Icon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = plug/plug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 7987ABMN4B;
@@ -447,7 +463,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5C95089372D4874CF7B18AC9 /* Pods-plug.release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Icon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = plug/plug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 7987ABMN4B;

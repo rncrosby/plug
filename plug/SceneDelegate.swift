@@ -21,8 +21,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         
         self.window?.backgroundColor = .black
         self.window?.tintColor = .systemRed
-        let nav = RootViewController()
-        self.window!.rootViewController = nav
+        let appDelegate = UIApplication.shared.delegate as! AppDelegate
+        self.window!.rootViewController = appDelegate.root
         self.window!.makeKeyAndVisible()
         
         guard scene is UIWindowScene else { return }

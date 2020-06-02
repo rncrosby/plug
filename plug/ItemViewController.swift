@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Firebase
 
 class ItemViewController: UITableViewController {
     
@@ -25,8 +26,8 @@ class ItemViewController: UITableViewController {
         super.init(style: .grouped)
         self.favoriteButton = UIBarButtonItem.init(image: UIImage.init(systemName: "heart.fill"), style: .plain, target: self, action: #selector(toggleFavorite))
         self.favoriteButton?.tintColor = .systemGray3
-        self.notificationButton = UIBarButtonItem.init(image: UIImage.init(systemName: "bell.fill"), style: .plain, target: self, action: #selector(toggleNotification))
-        self.notificationButton?.tintColor = .systemGray3
+//        self.notificationButton = UIBarButtonItem.init(image: UIImage.init(systemName: "bell.fill"), style: .plain, target: self, action: #selector(toggleNotification))
+//        self.notificationButton?.tintColor = .systemGray3
     }
     
     required init?(coder: NSCoder) {
@@ -54,7 +55,7 @@ class ItemViewController: UITableViewController {
         
         super.viewDidLoad()
         
-        self.navigationItem.rightBarButtonItems = [self.favoriteButton!,self.notificationButton!]
+        self.navigationItem.rightBarButtonItems = [self.favoriteButton!]
         self.sections.updateSection(title: .ItemDetails, rows: 2)
         self.sections.updateSection(title: .ItemPricing, rows: 1)
         self.item.checkIfFavoritedItem { (isLiked) in
@@ -62,12 +63,13 @@ class ItemViewController: UITableViewController {
                 self.favoriteButton?.tintColor = .systemRed
             }
         }
-        self.item.checkIfNotifications { (isOn) in
-            if isOn {
-                self.notificationButton?.tintColor = .systemRed
+        self.item.incrementMetric("views")
+        if let uid = Auth.auth().currentUser?.uid {
+            if uid == self.item.seller {
+                self.sections.updateSection(title: .ItemSeller, rows: 1)
+                self.sections.setHeaderTextForSection(.ItemSeller, "Seller Tools")
             }
         }
-        self.item.incrementMetric("views")
     }
 
     // MARK: - Table view data source
@@ -103,6 +105,10 @@ class ItemViewController: UITableViewController {
         }
     }
     
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return self.sections.titleForSectionAtIndex(section)
+    }
+    
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         switch self.sections.identiferForSectionAtIndex(indexPath.section) {
@@ -120,12 +126,36 @@ class ItemViewController: UITableViewController {
                 cell.detailTextLabel?.text = self.item.size!
                 cell.detailTextLabel?.font = buttonFont
                 cell.selectionStyle = .none
+                
+                let score = UILabel.init(frame: CGRect.init(x: 0, y: 0, width: 0, height: 0))
+                score.text = "\(self.item.views ?? 0)"
+                score.font = buttonFont
+                score.textAlignment = .center
+                score.sizeToFit()
+                score.frame.size.width+=25
+                score.frame.size.height = score.frame.size.width
+                score.layer.cornerRadius = score.frame.size.width/2
+                score.layer.masksToBounds = true
+                score.backgroundColor = .label
+                score.textColor = .systemGray6
+                cell.accessoryView = score
             }
             return cell
         case .ItemPricing:
             let cell = UITableViewCell.init(style: .default, reuseIdentifier: nil)
             cell.backgroundColor = .clear
-            let action = UIButton.init(frame: CGRect.init(origin: CGPoint.init(x: 15, y: 0), size: CGSize.init(width:self.view.frame.size.width-30, height: 50)))
+            
+            let share = UIButton.init(frame: CGRect.init(x: 15, y: 0, width: ((self.view.frame.size.width-30)/2)-7.5, height: 50))
+            share.backgroundColor = .systemRed
+            share.setTitle("SHARE", for: .normal)
+            share.titleLabel?.font = buttonFont
+            share.setTitleColor(.white, for: .normal)
+            share.layer.cornerRadius = 5
+            share.layer.masksToBounds = true
+            
+            cell.addSubview(share)
+            
+            let action = UIButton.init(frame: CGRect.init(origin: CGPoint.init(x: share.frame.maxX+15, y: 0), size: CGSize.init(width: share.frame.size.width, height: 50)))
             action.addTarget(self, action: #selector(beginMakeOffer(sender:)), for: .touchDown)
             action.addTarget(self, action: #selector(makeOffer(sender:)), for: .touchUpInside)
             action.titleLabel?.numberOfLines = 0
@@ -135,15 +165,8 @@ class ItemViewController: UITableViewController {
             action.backgroundColor = .white
             action.layer.cornerRadius = 5
             action.layer.masksToBounds = true
-//            let shadowLayer = CAShapeLayer()
-//            shadowLayer.path = UIBezierPath(roundedRect: action.bounds, cornerRadius: 5).cgPath
-//            shadowLayer.fillColor = UIColor.white.cgColor
-//            shadowLayer.shadowColor = UIColor.black.cgColor
-//            shadowLayer.shadowPath = shadowLayer.path
-//            shadowLayer.shadowOffset = CGSize(width: 0.0, height: 1.0)
-//            shadowLayer.shadowOpacity = 0.1
-//            shadowLayer.shadowRadius = 3
-//            action.layer.insertSublayer(shadowLayer, at: 0)
+            action.isEnabled = false
+            action.alpha = 0.5
             cell.addSubview(action)
             self.item.checkForOffer { (offerFound) in
                 if offerFound {
@@ -158,11 +181,24 @@ class ItemViewController: UITableViewController {
                             UIView.animate(withDuration: 0.15) {
                                 action.alpha = 1
                             }
+                            action.isEnabled = true
                         }
                     }
+                } else {
+                    UIView.animate(withDuration: 0.15) {
+                        action.alpha = 1
+                    }
+                    action.isEnabled = true
                 }
+                
             }
             cell.selectionStyle = .none
+            return cell
+        case .ItemSeller:
+            let cell = UITableViewCell.init(style: .default, reuseIdentifier: nil)
+            cell.textLabel?.text = "End Sale"
+            cell.textLabel?.textColor = .systemRed
+            cell.imageView?.image = UIImage.init(systemName: "xmark")
             return cell
         default:
             return UITableViewCell()
@@ -191,6 +227,16 @@ class ItemViewController: UITableViewController {
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         switch self.sections.identiferForSectionAtIndex(indexPath.section) {
+        case .ItemSeller:
+            if indexPath.row == 0 {
+                Firestore.firestore().collection("items").document(self.item.id!).delete { (error) in
+                    if let error = error {
+                        print(error.localizedDescription)
+                        return
+                    }
+                    self.navigationController?.popViewController(animated: true)
+                }
+            }
         default:
             break
         }

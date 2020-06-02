@@ -41,8 +41,8 @@ class BrowseViewController: UICollectionViewController {
         
         super.init(collectionViewLayout: layout)
         self.view.backgroundColor = .systemGroupedBackground
-        self.title = "Latest"
-        self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "square.grid.2x2"), selectedImage: UIImage.init(systemName: "square.grid.2x2.fill"))
+        self.title = "🔌"
+        self.tabBarItem = UITabBarItem.init(title: nil, image: UIImage.init(systemName: "cart"), selectedImage: UIImage.init(systemName: "cart.fill"))
     }
     
     
@@ -76,7 +76,20 @@ class BrowseViewController: UICollectionViewController {
         searchParent.addSubview(searchBar)
         self.collectionView.addSubview(searchParent)
         self.collectionView.contentInset = UIEdgeInsets.init(top: self.collectionView.contentInset.top+80, left: 15, bottom: self.collectionView.contentInset.bottom, right: 15)
+        
+        self.collectionView.refreshControl = UIRefreshControl.init()
+        self.collectionView.refreshControl?.addTarget(self, action: #selector(refresh(sender:)), for: .valueChanged)
+        
         self.getLatest {
+        }
+    }
+    
+    @objc func refresh(sender: UIRefreshControl) {
+        self.latestListener = nil
+        self.items.removeAll()
+        self.sections.updateSection(title: .Browse, rows: 0)
+        getLatest {
+            sender.endRefreshing()
         }
     }
     
@@ -106,7 +119,11 @@ class BrowseViewController: UICollectionViewController {
         let identifier = self.sections.identiferForSectionAtIndex(indexPath.section)
         var item:Item
         if identifier == .Browse {
-            item = self.items[indexPath.item]
+            if indexPath.item < self.items.count {
+                item = self.items[indexPath.item]
+            } else {
+                return collectionView.dequeueReusableCell(withReuseIdentifier: "error", for: indexPath)
+            }
         } else {
             item = self.searchResults[indexPath.item]
         }
@@ -138,15 +155,15 @@ class BrowseViewController: UICollectionViewController {
                 label.text = "\(title.uppercased())"
                 label.sizeToFit()
             }
-            let heart = UIImageView.init(frame: CGRect.init(x: self.itemSize.width-20, y: view.frame.maxY+10, width: 20, height: 15))
-            heart.tag = -5
-            heart.tintColor = .systemRed
-            cell.addSubview(heart)
-            item.checkIfFavoritedItem { (isFavorite) in
-                if isFavorite {
-                    heart.image = UIImage.init(systemName: "heart.fill")?.withRenderingMode(.alwaysTemplate)
-                }
-            }
+//            let heart = UIImageView.init(frame: CGRect.init(x: self.itemSize.width-20, y: view.frame.maxY+10, width: 20, height: 15))
+//            heart.tag = -5
+//            heart.tintColor = .systemRed
+//            cell.addSubview(heart)
+//            item.checkIfFavoritedItem { (isFavorite) in
+//                if isFavorite {
+//                    heart.image = UIImage.init(systemName: "heart.fill")?.withRenderingMode(.alwaysTemplate)
+//                }
+//            }
         }
         return cell
     }
@@ -172,33 +189,43 @@ class BrowseViewController: UICollectionViewController {
         self.navigationController?.pushViewController(itemViewController, animated: true)
         
     }
+    
+    var latestListener:ListenerRegistration?
 
     func getLatest(_ complete: @escaping () -> Void) {
-        Firestore.firestore().collection("items").whereField("sold", isEqualTo: false).addSnapshotListener { (snapshot, error) in
-            guard let snapshot = snapshot else {
-                print("\(error!.localizedDescription)")
+        
+        Firestore.firestore().collection("items").whereField("sold", isEqualTo: false).order(by: "posted", descending: true).limit(to: 25).getDocuments { (snapshot, error) in
+            if let error = error {
+                print(error.localizedDescription)
                 complete()
                 return
             }
-            for (_, change) in snapshot.documentChanges.enumerated() {
-                if change.type == .added {
-                    let item = Item.init(change.document.documentID)
-                    item.attachData(change.document.data())
-                    self.items.append(item)
-                    self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: change.document.documentID)
+            if let documents = snapshot?.documents {
+                for document in documents {
+                    let item = Item.init(document.documentID)
+                    item.attachData(document.data())
+                    self.items.insert(item, at: 0)
+                    self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: document.documentID)
+                }
+                self.collectionView.performBatchUpdates({
+                    var count = self.items.count
+                    if self.items.isEmpty {
+                        count = 0
+                    }
+                    let (insert, index) = self.sections.updateSection(title: .Browse, rows: count)
+                    if insert {
+                        self.collectionView.insertSections(IndexSet.init(integer: index))
+                    } else {
+                        self.collectionView.reloadSections(IndexSet.init(integer: index))
+                    }
+    //                self.collectionView.insertItems(at: [IndexPath.init(item: self.items.count-2, section: index)])
+                }) { (done) in
+                    complete()
+                    return
                 }
             }
-            self.collectionView.performBatchUpdates({
-                let (insert, index) = self.sections.updateSection(title: .Browse, rows: self.items.count)
-                if insert {
-                    self.collectionView.insertSections(IndexSet.init(integer: index))
-                } else {
-                    self.collectionView.reloadSections(IndexSet.init(integer: index))
-                }
-//                self.collectionView.insertItems(at: [IndexPath.init(item: self.items.count-2, section: index)])
-            }) { (done) in
-                complete()
-            }
+            complete()
+            return
         }
     }
 

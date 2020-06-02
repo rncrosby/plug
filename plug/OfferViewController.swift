@@ -136,9 +136,11 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
     func createPreliminaryOffer() {
         if  let uid = Auth.auth().currentUser?.uid,
             let itemID = self.item.id,
+            let itemName = self.item.name,
             let itemSeller = self.item.seller {
             let reference = Firestore.firestore().collection("offers").document()
             reference.setData([
+                "itemName" : itemName,
                 "date"      : FieldValue.serverTimestamp(),
                 "item"      : itemID,
                 "customer"  : uid,
@@ -153,6 +155,8 @@ class OfferViewController: UIViewController, UIAdaptivePresentationControllerDel
                 }
                 self.item.offerReference = reference
                 self.offer = Offer.init(preliminary: reference, amount: self.item.cost ?? 0)
+                self.offer?.offerComposerIsLocal = true
+                self.offer?.offerComposerIsCash = true
                 self.offer?.delegate = self
                 if self.isViewLoaded {
                     self.updateOffer()

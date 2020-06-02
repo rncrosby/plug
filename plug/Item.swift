@@ -135,11 +135,9 @@ class Item: NSObject {
         {
             var tags = [String]()
             tags.append(documentID)
-            tags.append(name.lowercased())
             for word in name.components(separatedBy: " ") {
                 tags.append(word.lowercased())
             }
-            tags.append(size.lowercased())
             for word in size.components(separatedBy: " ") {
                 tags.append(word.lowercased())
             }
@@ -215,6 +213,13 @@ class Item: NSObject {
                 if let error = error {
                     complete(false, error.localizedDescription)
                     return
+                }
+                Firestore.firestore().collectionGroup("tags").whereField("tags", arrayContainsAny: data["tags"] as! [String]).getDocuments { (result, error) in
+                    if let error = error {
+                        print(error.localizedDescription)
+                        return
+                    }
+                    print(result?.documents)
                 }
                 complete(true, nil)
                 return

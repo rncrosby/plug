@@ -5,7 +5,7 @@
 //  Created by Robert Crosby on 5/23/20.
 //  Copyright © 2020 Robert Crosby. All rights reserved.
 //
-
+import Firebase
 import UIKit
 
 class PostViewController: UITableViewController, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
@@ -37,7 +37,7 @@ class PostViewController: UITableViewController, UIImagePickerControllerDelegate
         self.sections.updateSection(title: .ItemImages, rows: 1)
         self.sections.updateSection(title: .ItemClassification, rows: 1)
         self.sections.updateSection(title: .ItemSizing, rows: 1)
-        self.sections.updateSection(title: .ItemPricing, rows: 2)
+        self.sections.updateSection(title: .ItemPricing, rows: 1)
         self.sections.updateSection(title: .Actions, rows: 1)
         item.delegate = self
         super.viewDidLoad()

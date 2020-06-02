@@ -18,6 +18,7 @@ class SectionController {
             
             case Browse = "browse"
             
+            case ItemSeller = "seller"
             case ItemMetrics = "metrics"
             case ItemDetails = "details"
             case ItemImages = "images"
@@ -55,15 +56,21 @@ class SectionController {
             case MyStuffOffers = "my stuff offer"
             case MyStuffFavorites = "my stuff favorites"
             
-            
+            case AccountProfile = "Account profile"
             case AccountSellerSummary = "seller summary"
             case AccountCustomerSummary = "customer summary"
             
-            
+            case Notifications = "notifications"
             case ForYouSearch = "search"
             case ForYouResults = "results"
             case ForYouTags = "tags"
             case ForYouFavorites = "favorites"
+            
+            
+            case AuthPhone = "phone number"
+            case AuthCode = "auth code"
+            case AuthContinue = "auth continue"
+            case AuthNotifyEveryone = "notify everyone"
         }
     }
     
@@ -145,11 +152,13 @@ class SectionController {
     }
     
     func titleForSectionAtIndex(_ index: Int) -> String? {
-        if self.sections[index].showHeader {
-            if !(self.sections[index].headerText.isEmpty) {
-                return self.sections[index].headerText
+        if index < self.sections.count {
+            if self.sections[index].showHeader {
+                if !(self.sections[index].headerText.isEmpty) {
+                    return self.sections[index].headerText
+                }
+                return nil
             }
-            return nil
         }
         return nil
     }

@@ -58,6 +58,8 @@ class Offer: NSObject {
             } else {
                 return "Waiting for shipment"
             }
+        } else if amount == nil {
+            return "Waiting for customer to submit offer"
         } else {
             return "Waiting for seller to accept offer"
         }
@@ -77,6 +79,26 @@ class Offer: NSObject {
     init(_ reference: DocumentReference) {
         self.reference = reference
         self.complete = false
+    }
+    
+    init(_ id: String, _ data: [String:Any]) {
+        self.reference = Firestore.firestore().collection("offers").document(id)
+        self.modified = (data["modified"] as? Timestamp)
+        self.date = (data["date"] as? Timestamp)?.dateValue()
+        self.item = data["item"] as? String
+        self.customer = data["customer"] as? String
+        self.seller = data["seller"] as? String
+        self.amount = data["amount"] as? Int
+        self.local = data["local"] as? Bool
+        self.cash = data["cash"] as? Bool
+        self.accepted = data["accepted"] as? Bool
+        self.payment = data["payment"] as? String
+        self.shipping_name = data["shipping_name"] as? String
+        self.shipping_address = data["shipping_address"] as? String
+        self.shipped = data["shipped"] as? Bool
+        self.tracking_number = data["tracking_number"] as? String
+        self.complete = data["complete"] as! Bool
+        self.isPopulated = true
     }
     
     init(fromQuery: QueryDocumentSnapshot) {
@@ -269,8 +291,8 @@ class Offer: NSObject {
     
     
     var offerComposerAmount:Int?
-    var offerComposerIsLocal:Bool?
-    var offerComposerIsCash:Bool?
+    var offerComposerIsLocal:Bool = true
+    var offerComposerIsCash:Bool = true
     
     var summarySections:SectionController?
     var summaryView:UITableView?
@@ -309,9 +331,9 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
                     self.summarySections?.updateSection(title: .OfferAmount, rows: 1)
                     self.summarySections?.updateSection(title: .OfferLocal, rows: 1)
                     height+=120
-                    if self.offerComposerIsLocal ?? false {
+                    if self.offerComposerIsLocal {
                         self.summarySections?.updateSection(title: .OfferCash, rows: 1)
-                        height+=60
+                        height+=70
                     }
                     self.summarySections?.updateSection(title: .OfferSubmit, rows: 1)
                     height+=70
@@ -429,10 +451,14 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
             cell.accessoryView = control
             cell.selectionStyle = .none
         case .OfferCash:
-            cell = UITableViewCell.init(style: .default, reuseIdentifier: nil)
+            cell = UITableViewCell.init(style: .subtitle, reuseIdentifier: nil)
             cell.textLabel?.textColor = .systemGray
             cell.textLabel?.font = buttonFont
-            cell.textLabel?.text = "CASH PAYMENT"
+            cell.textLabel?.text = "CASH/VENMO/ZELLE"
+            cell.detailTextLabel?.text = "Organize payment using the messaging below after submitting the offer."
+            cell.detailTextLabel?.textColor = .systemGray
+            cell.detailTextLabel?.numberOfLines = 0
+            cell.detailTextLabel?.font = buttonFont.withSize(12)
             let control = UISwitch.init()
             control.setOn(self.offerComposerIsCash ?? false, animated: false)
             control.addTarget(self, action: #selector(toggleCash), for: .valueChanged)
@@ -657,9 +683,9 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         let identifier = self.summarySections!.identiferForSectionAtIndex(indexPath.row)
-        if identifier == .OfferAmount || identifier == .OfferLocal || identifier == .OfferCash {
+        if identifier == .OfferAmount || identifier == .OfferLocal {
             return 60
-        } else if identifier == .OfferSellerAccept || identifier == .OfferSubmit || identifier == .OfferCustomerCardPayment || identifier == .OfferSellerMarkShipped || identifier == .OfferTrackShipped {
+        } else if identifier == .OfferSellerAccept || identifier == .OfferSubmit || identifier == .OfferCustomerCardPayment || identifier == .OfferSellerMarkShipped || identifier == .OfferTrackShipped || identifier == .OfferCash {
             return 70
         } else if identifier == .OfferPending || identifier == .OfferNotSubmitted {
             return 80
@@ -676,20 +702,12 @@ extension Offer: UITableViewDelegate,UITableViewDataSource,UITextFieldDelegate {
     }
     
     @objc func toggleLocal() {
-        if self.offerComposerIsLocal != nil {
-            self.offerComposerIsLocal?.toggle()
-        } else {
-            self.offerComposerIsLocal = true
-        }
+        self.offerComposerIsLocal.toggle()
         self.delegate?.offerUpdated()
     }
     
     @objc func toggleCash() {
-        if self.offerComposerIsCash != nil {
-            self.offerComposerIsCash?.toggle()
-        } else {
-            self.offerComposerIsCash = true
-        }
+        self.offerComposerIsCash.toggle()
     }
     
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
